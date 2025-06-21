@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS compliance.kyc_verifications;
+DROP TYPE IF EXISTS compliance.kyc_status;

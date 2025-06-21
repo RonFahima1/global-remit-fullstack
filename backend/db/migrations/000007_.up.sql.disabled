@@ -1,0 +1,17 @@
+-- clients
+CREATE INDEX idx_clients_status ON clients(status) WHERE status != 'active';
+CREATE INDEX idx_clients_created_at ON clients(created_at);
+
+-- accounts
+CREATE INDEX idx_accounts_status ON accounts(status) WHERE status != 'active';
+CREATE INDEX idx_accounts_balance ON accounts(balance) WHERE balance > 0;
+
+-- transactions
+CREATE INDEX idx_transactions_type_status ON transactions(status);
+
+-- kyc_verifications
+CREATE INDEX idx_kyc_expiration ON compliance.kyc_verifications(verified_at) 
+    WHERE verified_at IS NOT NULL;
+
+-- audit_logs
+CREATE INDEX idx_audit_logs_composite ON compliance.audit_logs(event_type, event_time);

@@ -1,0 +1,22 @@
+CREATE SCHEMA IF NOT EXISTS compliance;
+
+CREATE TYPE compliance.kyc_status AS ENUM (
+    'pending',
+    'approved',
+    'rejected',
+    'expired'
+);
+
+CREATE TABLE IF NOT EXISTS compliance.kyc_verifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    verification_type VARCHAR(50) NOT NULL,
+    verification_status compliance.kyc_status NOT NULL DEFAULT 'pending',
+    verified_at TIMESTAMPTZ,
+    rejection_reason TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_kyc_client_id ON compliance.kyc_verifications(client_id);
+CREATE INDEX idx_kyc_status ON compliance.kyc_verifications(verification_status);

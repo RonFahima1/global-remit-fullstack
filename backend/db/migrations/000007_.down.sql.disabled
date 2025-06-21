@@ -1,0 +1,7 @@
+DROP INDEX IF EXISTS idx_clients_status;
+DROP INDEX IF EXISTS idx_clients_created_at;
+DROP INDEX IF EXISTS idx_accounts_status;
+DROP INDEX IF EXISTS idx_accounts_balance;
+DROP INDEX IF EXISTS idx_transactions_type_status;
+DROP INDEX IF EXISTS idx_kyc_expiration;
+DROP INDEX IF EXISTS idx_audit_logs_composite;

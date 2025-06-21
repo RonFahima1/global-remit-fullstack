@@ -1,0 +1,23 @@
+CREATE SCHEMA IF NOT EXISTS config;
+
+CREATE TABLE IF NOT EXISTS config.currencies (
+    code CHAR(3) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    symbol VARCHAR(10) NOT NULL,
+    decimal_places INTEGER NOT NULL DEFAULT 2,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    is_base_currency BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM config.currencies WHERE code = 'USD') THEN
+        INSERT INTO config.currencies (code, name, symbol, decimal_places, is_base_currency) VALUES
+        ('USD', 'United States Dollar', '$', 2, true),
+        ('EUR', 'Euro', '€', 2, false),
+        ('GBP', 'British Pound', '£', 2, false),
+        ('JPY', 'Japanese Yen', '¥', 0, false);
+    END IF;
+END $$;
