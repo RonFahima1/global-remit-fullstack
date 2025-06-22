@@ -12,6 +12,8 @@ import {
   ChevronLeft,
   ChevronDown
 } from 'lucide-react';
+import { hasPagePermission } from '@/app/permissions';
+import { useCurrentUser } from '@/context/CurrentUserContext';
 
 // Main navigation structure with five major sections
 const adminNavigation = [
@@ -57,7 +59,10 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const activeSection = adminNavigation.find(item => isActive(pathname, item.path));
+  const user = useCurrentUser();
+  const filteredAdminNavigation = adminNavigation.filter((item): item is typeof item & { path: string } => typeof item.path === 'string')
+    .filter(item => hasPagePermission(user?.permissions || [], item.path));
+  const activeSection = filteredAdminNavigation.find(item => isActive(pathname, item.path ?? ''));
   
   return (
     <div className="bg-white min-h-screen pb-12">
@@ -85,8 +90,8 @@ export default function AdminLayout({
       {/* Clean horizontal navigation */}
       <div className="sticky top-14 z-10 bg-white border-b border-gray-100 overflow-x-auto shadow-sm">
         <div className="flex px-4 lg:px-8 space-x-1 min-w-max py-2">
-          {adminNavigation.map((item) => {
-            const active = isActive(pathname, item.path);
+          {filteredAdminNavigation.map((item) => {
+            const active = isActive(pathname, item.path ?? '');
             return (
               <Link
                 key={item.path}

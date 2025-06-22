@@ -67,9 +67,16 @@ const authOptions: NextAuthOptions = {
     })
   ],
   pages: {
-    signIn: "http://localhost:3000/login",
-    error: "http://localhost:3000/login",
+    signIn: "/login",
+    error: "/login",
   },
+  theme: {
+    colorScheme: "light",
+    logo: "/app-logo.png",
+    brandColor: "#0070f3",
+  },
+  secret: process.env.NEXTAUTH_SECRET || 'your-secret-key',
+  useSecureCookies: process.env.NODE_ENV === 'production',
   session: {
     strategy: "jwt" as const,
     maxAge: 30 * 60,

@@ -44,7 +44,7 @@ export function SSOSettings() {
       clientId: "",
       clientSecret: "",
       tenantId: "",
-      redirectUri: "http://localhost:3000/api/auth/callback/microsoft",
+      redirectUri: `${process.env.NEXT_PUBLIC_UI_URL || 'http://localhost:3000'}/api/auth/callback/microsoft`,
     },
   });
 

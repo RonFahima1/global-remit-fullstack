@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const UI_URL = 'http://localhost:3000';
+const UI_URL = process.env.NEXT_PUBLIC_UI_URL || 'http://localhost:3000'; // 3000 here is a port. Never change port numbers in code. Use canonical port from env/config only.
 const API_URL = 'http://localhost:8080/api/v1';
 
 const seededUser = {

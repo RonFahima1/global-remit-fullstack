@@ -16,6 +16,8 @@ declare module "next-auth" {
       name?: string;
       role: string;
       status?: string;
+      mustChangePassword?: boolean;
+      permissions?: string[];
     };
   }
 }
@@ -29,8 +31,8 @@ export const authOptions: NextAuthOptions = {
   
   // Custom pages
   pages: {
-    signIn: "http://localhost:3000/login",
-    error: "http://localhost:3000/login",
+    signIn: "/login",
+    error: "/login",
   },
   providers: [
     CredentialsProvider({
@@ -63,7 +65,35 @@ export const authOptions: NextAuthOptions = {
 
           if (!response.ok) {
             console.log('Login failed:', data);
-            return null;
+            // Handle specific error cases
+            if (data.error === 'Account is locked') {
+              throw new Error('Account is locked. Please contact support.');
+            }
+            if (data.error === 'invalid credentials') {
+              throw new Error('Invalid email or password.');
+            }
+            throw new Error(data.error || 'Login failed');
+          }
+
+          // Check if user must change password
+          if (data.user.must_change_password) {
+            // Store the flag in the user object
+            return {
+              id: data.user.id || data.user.user_id,
+              email: data.user.email,
+              name: data.user.name || data.user.email,
+              role: data.user.role,
+              status: data.user.status,
+              mustChangePassword: true,
+              accessToken: data.accessToken,
+              refreshToken: data.refreshToken,
+              permissions: data.user.permissions || [],
+            } as User & { 
+              accessToken: string; 
+              refreshToken: string; 
+              mustChangePassword: boolean;
+              permissions: string[];
+            };
           }
 
           // Return the user object with tokens
@@ -73,12 +103,19 @@ export const authOptions: NextAuthOptions = {
             name: data.user.name || data.user.email,
             role: data.user.role,
             status: data.user.status,
+            mustChangePassword: false,
             accessToken: data.accessToken,
             refreshToken: data.refreshToken,
-          } as User & { accessToken: string; refreshToken: string };
+            permissions: data.user.permissions || [],
+          } as User & { 
+            accessToken: string; 
+            refreshToken: string; 
+            mustChangePassword: boolean;
+            permissions: string[];
+          };
         } catch (error) {
           console.error('Authentication error:', error);
-          return null;
+          throw error; // Re-throw to show error message
         }
       },
     }),
@@ -93,6 +130,8 @@ export const authOptions: NextAuthOptions = {
           refreshToken: (user as any)?.refreshToken,
           role: user.role,
           id: user.id,
+          mustChangePassword: (user as any)?.mustChangePassword || false,
+          permissions: (user as any)?.permissions || [],
           expiresAt: Date.now() + 30 * 60 * 1000, // 30 minutes
         };
       }
@@ -107,8 +146,10 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session?.user) {
-        session.user.id = token.sub || token.id;
-        session.user.role = token.role;
+        session.user.id = (token.sub as string) || ((token as any).id as string) || '';
+        session.user.role = (token as any).role || 'USER';
+        session.user.mustChangePassword = (token as any).mustChangePassword || false;
+        session.user.permissions = (token as any).permissions || [];
         session.accessToken = (token as any)?.accessToken as string || '';
         session.refreshToken = (token as any)?.refreshToken as string || '';
         session.error = (token as any)?.error as string || undefined;
@@ -146,7 +187,7 @@ async function refreshAccessToken(token: any) {
     console.error('Error refreshing access token:', error);
     return {
       ...token,
-      error: 'RefreshAccessTokenError' as string,
+      error: 'RefreshAccessTokenError',
     };
   }
 }

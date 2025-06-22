@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Server configuration
+  server: {
+    port: 3000,
+    hostname: 'localhost',
+  },
   typescript: {
     ignoreBuildErrors: true,
   },

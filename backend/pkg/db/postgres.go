@@ -3,6 +3,7 @@ package db
 import (
 	"fmt"
 	"log"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
@@ -19,6 +20,12 @@ func Connect(cfg *config.Config) (*sqlx.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to create connection pool: %w", err)
 	}
+
+	// Configure connection pool settings
+	pool.SetMaxOpenConns(25)
+	pool.SetMaxIdleConns(5)
+	pool.SetConnMaxLifetime(5 * time.Minute)
+	pool.SetConnMaxIdleTime(5 * time.Minute)
 
 	if err := pool.Ping(); err != nil {
 		return nil, fmt.Errorf("unable to ping database: %w", err)

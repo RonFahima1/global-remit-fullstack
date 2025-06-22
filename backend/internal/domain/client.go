@@ -30,6 +30,7 @@ type Client struct {
 	KycStatus             string     `json:"kyc_status" db:"kyc_status"`
 	KycVerifiedAt         *time.Time `json:"kyc_verified_at" db:"kyc_verified_at"`
 	KycVerifiedBy         *uuid.UUID `json:"kyc_verified_by" db:"kyc_verified_by"`
+	RiskLevel             string     `json:"risk_level" db:"risk_level"`
 	RelationshipManagerID *uuid.UUID `json:"relationship_manager_id" db:"relationship_manager_id"`
 	ReferralSource        *string    `json:"referral_source" db:"referral_source"`
 	CreatedAt             time.Time  `json:"created_at" db:"created_at"`
@@ -38,4 +39,5 @@ type Client struct {
 	CreatedBy             *uuid.UUID `json:"created_by" db:"created_by"`
 	UpdatedBy             *uuid.UUID `json:"updated_by" db:"updated_by"`
 	Version               int        `json:"version" db:"version"`
+	BranchID              *uuid.UUID `json:"branch_id" db:"branch_id"`
 }

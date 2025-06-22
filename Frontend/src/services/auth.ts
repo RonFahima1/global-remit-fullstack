@@ -36,11 +36,11 @@ export const useAuth = () => {
       // Clear the session on the client side
       await signOut({ 
         redirect: false,
-        callbackUrl: 'http://localhost:3000/login'
+        callbackUrl: '/login'
       });
       
       // Redirect to login page
-      router.push('http://localhost:3000/login');
+      router.push('/login');
       router.refresh();
     } catch (error) {
       console.error('Logout failed:', error);

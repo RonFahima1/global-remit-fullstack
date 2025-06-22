@@ -1,5 +1,5 @@
 export const API_CONFIG = {
-  BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api',
+  BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api', // Never change port number here. Use canonical port from env/config.
   TIMEOUT: 30000,
   VERSION: 'v1',
   ENDPOINTS: {

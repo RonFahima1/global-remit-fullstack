@@ -10,6 +10,8 @@ import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { hasPagePermission } from '@/app/permissions';
+import { useCurrentUser } from '@/context/CurrentUserContext';
 
 interface MobileSidebarProps {
   isOpen: boolean;
@@ -20,6 +22,8 @@ interface MobileSidebarProps {
 export function MobileSidebar({ isOpen, onOpenChange, navItems }: MobileSidebarProps) {
   const { direction } = useLanguage();
   const pathname = usePathname();
+  const user = useCurrentUser();
+  const filteredNavItems = navItems.filter(item => hasPagePermission(user?.permissions || [], item.href));
   
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
@@ -33,7 +37,7 @@ export function MobileSidebar({ isOpen, onOpenChange, navItems }: MobileSidebarP
           </div>
           <div className="py-6">
             <nav className="space-y-2 px-4">
-              {navItems.map((item) => {
+              {filteredNavItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
                   <div key={item.href} className="relative flex items-center">

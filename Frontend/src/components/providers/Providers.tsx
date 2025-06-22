@@ -7,6 +7,7 @@ import { CurrentUserProvider } from '@/context/CurrentUserContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as SonnerToaster } from 'sonner';
+import PasswordChangeGuard from '@/components/auth/PasswordChangeGuard';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -15,11 +16,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <LanguageProvider>
           <CurrentUserProvider>
             <NotificationProvider>
+              <PasswordChangeGuard>
               <>
                 {children}
                 <Toaster />
                 <SonnerToaster position="top-right" />
               </>
+              </PasswordChangeGuard>
             </NotificationProvider>
           </CurrentUserProvider>
         </LanguageProvider>

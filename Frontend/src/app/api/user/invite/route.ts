@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
-import { prisma } from '@/lib/prisma';
-import { randomBytes } from 'crypto';
 
-const BASE_URL = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+
+// Map role names to role IDs from our backend
+const roleToIdMap: { [key: string]: number } = {
+  'ORG_ADMIN': 5,
+  'AGENT_ADMIN': 6,
+  'AGENT_USER': 7,
+  'COMPLIANCE_USER': 8,
+  'ORG_USER': 9,
+  'GLOBAL_VIEWER': 10,
+};
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,30 +33,44 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email and role required' }, { status: 400 });
     }
 
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
-      return NextResponse.json({ error: 'User already exists' }, { status: 409 });
+    // Map role name to role ID
+    const roleId = roleToIdMap[role];
+    if (!roleId) {
+      return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
     }
 
-    // Create invitation
-    const token = randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 3); // 3 days
-    
-    const invite = await prisma.invitation.create({
-      data: {
-        email,
-        role,
-        token,
-        invitedBy: session.user.id,
-        expiresAt,
-        organization: null,
-        agentId: null,
+    // Get access token from session
+    const accessToken = (session as any).accessToken;
+    if (!accessToken) {
+      return NextResponse.json({ error: 'No access token available' }, { status: 401 });
+    }
+
+    // Call backend API to create invitation
+    const response = await fetch(`${BACKEND_URL}/api/v1/invitations/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
       },
+      body: JSON.stringify({
+        email,
+        role_id: roleId,
+        expires_in_hours: 72, // 3 days
+      }),
     });
 
-    const inviteLink = `${BASE_URL}/register?token=${token}`;
-    return NextResponse.json({ inviteLink, expiresAt });
+    if (!response.ok) {
+      const errorData = await response.json();
+      return NextResponse.json({ error: errorData.error || 'Failed to create invitation' }, { status: response.status });
+    }
+
+    const data = await response.json();
+    
+    return NextResponse.json({ 
+      inviteLink: data.invite_url, 
+      expiresAt: data.expires_at,
+      token: data.token 
+    });
   } catch (error) {
     console.error('Error creating invitation:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

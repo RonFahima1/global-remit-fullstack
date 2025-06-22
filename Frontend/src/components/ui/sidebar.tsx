@@ -24,8 +24,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import LoadingOverlay from '@/components/ui/LoadingOverlay'
-import { useCurrentUser, canViewReports, canApproveKYC } from '@/context/CurrentUserContext'
+import { useCurrentUser } from '@/context/CurrentUserContext'
 import { Logo } from "@/components/ui/logo"
+import { hasPagePermission } from '@/app/permissions'
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -102,6 +103,10 @@ const SidebarProvider = React.forwardRef<
     const [navLoading, setNavLoading] = React.useState(false);
     const [expandedMenus, setExpandedMenus] = React.useState<{ [label: string]: boolean }>({});
     const user = useCurrentUser();
+
+    // Filter navigation links by permission
+    const filteredNavLinks = navLinks.filter(item => hasPagePermission(user?.permissions || [], item.href));
+    const filteredSettingsLinks = settingsLinks.filter(item => hasPagePermission(user?.permissions || [], item.href));
 
     // This is the internal state of the sidebar.
     // We use openProp and setOpenProp for control from outside the component.
@@ -225,7 +230,7 @@ const SidebarProvider = React.forwardRef<
               </div>
               {/* Navigation Links */}
               <nav className="flex flex-col gap-3 w-full px-4 mt-4 md:mt-0">
-                {navLinks.slice(0, 7).map((item) => (
+                {filteredNavLinks.slice(0, 7).map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
@@ -241,7 +246,7 @@ const SidebarProvider = React.forwardRef<
                 {/* Section separator */}
                 <div className="my-3 border-t border-gray-200 dark:border-gray-700 w-full" />
                 {/* Settings & Administration */}
-                {navLinks.slice(7).map((item) => (
+                {filteredNavLinks.slice(7).map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}

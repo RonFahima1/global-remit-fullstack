@@ -3,6 +3,8 @@ import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { roleMiddleware } from "./middleware/roleMiddleware";
 
+const UI_URL = process.env.NEXT_PUBLIC_UI_URL || 'http://localhost:3000'; // Never change port number here. Use canonical port from env/config.
+
 export async function middleware(request: NextRequest) {
   // Skip middleware for static files and API routes
   if (
@@ -14,12 +16,12 @@ export async function middleware(request: NextRequest) {
   }
 
   const token = await getToken({ req: request, secret: 'b1e93eda591ada953b034a7c28eaba0e' });
-  const isAuthPage = request.nextUrl.pathname === "http://localhost:3000/login" || 
+  const isAuthPage = request.nextUrl.pathname === `${UI_URL}/login` || 
                     request.nextUrl.pathname === "/register";
   const callbackUrl = request.nextUrl.searchParams.get('callbackUrl');
 
   // Prevent infinite redirect loop: if already on /login or /register and callbackUrl is also /login or /register, do not redirect
-  if (isAuthPage && (callbackUrl === 'http://localhost:3000/login' || callbackUrl === '/register')) {
+  if (isAuthPage && (callbackUrl === `${UI_URL}/login` || callbackUrl === '/register')) {
     return null;
   }
 

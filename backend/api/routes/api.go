@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"backend/api/handlers"
+	"backend/api/middleware"
 	"backend/internal/app"
 
 	"github.com/gin-gonic/gin"
@@ -23,6 +24,9 @@ func SetupRouter(db *sqlx.DB) *gin.Engine {
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(application)
+	invitationHandler := handlers.NewInvitationHandler(application)
+	userManagementHandler := handlers.NewUserManagementHandler(application)
+	clientHandler := handlers.NewClientHandler(application)
 
 	// Group routes under /api/v1
 	v1 := r.Group("/api/v1")
@@ -35,6 +39,52 @@ func SetupRouter(db *sqlx.DB) *gin.Engine {
 			auth.POST("/refresh", authHandler.Refresh)
 			auth.POST("/logout", authHandler.Logout)
 			auth.GET("/me", authHandler.Me)
+		}
+
+		// Invitation routes (public for validation and acceptance)
+		invitations := v1.Group("/invitations")
+		{
+			invitations.GET("/validate", invitationHandler.ValidateInvitation)
+			invitations.POST("/accept", invitationHandler.AcceptInvitation)
+		}
+
+		// Protected routes (require authentication)
+		protected := v1.Group("/")
+		protected.Use(middleware.AuthMiddleware())
+		{
+			// Protected auth routes
+			protectedAuth := protected.Group("/auth")
+			{
+				protectedAuth.POST("/change-password", authHandler.ChangePassword)
+			}
+
+			// User management routes - simplified structure
+			protected.GET("/users", userManagementHandler.GetUsers)
+			protected.POST("/users", userManagementHandler.CreateUser)
+			protected.GET("/users/search", userManagementHandler.SearchUsers)
+			protected.GET("/users/:id", userManagementHandler.GetUser)
+			protected.PUT("/users/:id", userManagementHandler.UpdateUser)
+			protected.PATCH("/users/:id/status", userManagementHandler.UpdateUserStatus)
+			protected.POST("/users/:id/reset-password", userManagementHandler.ResetUserPassword)
+			protected.DELETE("/users/:id", userManagementHandler.DeleteUser)
+			protected.GET("/users/:id/permissions", userManagementHandler.GetUserPermissions)
+			protected.GET("/test-users", userManagementHandler.Test)
+
+			// Role management routes
+			protected.GET("/roles", userManagementHandler.GetRoles)
+
+			// Invitation management (admin only)
+			invitationMgmt := protected.Group("/invitations")
+			{
+				invitationMgmt.POST("/", invitationHandler.CreateInvitation)
+				invitationMgmt.GET("/", invitationHandler.ListInvitations)
+				invitationMgmt.DELETE("/:id", invitationHandler.CancelInvitation)
+				invitationMgmt.POST("/:id/resend", invitationHandler.ResendInvitation)
+			}
+
+			// Client management routes
+			protected.GET("/clients", clientHandler.GetClients)
+			protected.POST("/clients", clientHandler.CreateClient)
 		}
 
 		// Test-only routes

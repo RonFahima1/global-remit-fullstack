@@ -36,6 +36,11 @@ func main() {
 
 	r := routes.SetupRouter(database)
 
+	// Debug: Print all registered routes
+	for _, ri := range r.Routes() {
+		log.Printf("Registered route: %s %s", ri.Method, ri.Path)
+	}
+
 	if err := r.Run(":" + cfg.AppPort); err != nil {
 		log.Fatalf("failed to run server: %v", err)
 	}

@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 interface HeaderProps {
   sidebarWidth: number;
@@ -30,12 +31,28 @@ export function Header({ sidebarWidth, onMobileMenuClick }: HeaderProps) {
   const { theme, setTheme } = useTheme();
   const { direction } = useLanguage();
   const { user } = useAuth();
+  const router = useRouter();
   const [isSpinning, setIsSpinning] = React.useState(false);
 
   const handleAvatarHover = () => {
     if (!isSpinning) {
       setIsSpinning(true);
       setTimeout(() => setIsSpinning(false), 1000); // Duration of the spin animation
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut({ 
+        redirect: false,
+        callbackUrl: '/login'
+      });
+      router.push('/login');
+      router.refresh();
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Fallback: redirect to login page anyway
+      router.push('/login');
     }
   };
 
@@ -142,7 +159,7 @@ export function Header({ sidebarWidth, onMobileMenuClick }: HeaderProps) {
               </DropdownMenuItem>
               <DropdownMenuItem className="text-red-600 dark:text-red-400 rounded-lg h-[40px] text-[15px] transition-colors duration-200 ease-ios hover:bg-red-50 dark:hover:bg-red-950/20 focus:bg-red-100 dark:focus:bg-red-950/30">
                 <button 
-                  onClick={() => signOut({ callbackUrl: 'http://localhost:3000/login' })}
+                  onClick={handleLogout}
                   className="flex items-center w-full"
                 >
                   <LogOut className={cn(

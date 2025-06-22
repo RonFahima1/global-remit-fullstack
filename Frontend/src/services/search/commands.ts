@@ -1,4 +1,5 @@
 import { SearchCommand } from '@/types/search.types';
+import { signOut } from 'next-auth/react';
 
 // Available commands
 export const commands: SearchCommand[] = [
@@ -79,8 +80,17 @@ export const commands: SearchCommand[] = [
     title: 'Log Out',
     description: 'Log out of your account',
     keywords: ['logout', 'signout', 'exit', 'leave'],
-    action: () => {
-      window.location.href = '/logout';
+    action: async () => {
+      try {
+        await signOut({ 
+          redirect: false,
+          callbackUrl: '/login'
+        });
+        window.location.href = '/login';
+      } catch (error) {
+        console.error('Logout failed:', error);
+        window.location.href = '/login';
+      }
     },
     icon: 'log-out'
   },

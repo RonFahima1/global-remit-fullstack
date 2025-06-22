@@ -78,6 +78,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		h.app.Logger.Warn("Failed login attempt", "email", req.Email, "error", err.Error())
 		if err.Error() == "password does not match" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials", "detail": "password mismatch"})
+		} else if err.Error() == "account is temporarily locked due to multiple failed login attempts" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "account locked", "detail": "account is temporarily locked due to multiple failed login attempts"})
+		} else if err.Error() == "user is not active" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "account disabled", "detail": "user account is not active"})
 		} else {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		}
@@ -303,4 +307,52 @@ func (h *AuthHandler) TestSeedUser(c *gin.Context) {
 
 	h.app.Logger.Info("Test user seeded successfully", "email", user.Email, "status", user.Status)
 	c.JSON(http.StatusCreated, user)
+}
+
+// ChangePasswordRequest for password change endpoint
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword" binding:"required"`
+	NewPassword     string `json:"newPassword" binding:"required,min=8"`
+}
+
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+	var req ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request", "details": err.Error()})
+		return
+	}
+
+	// Get user from context (set by auth middleware)
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
+	// Get user from database
+	user, err := h.app.AuthRepo.GetUserByID(c.Request.Context(), userID.(string))
+	if err != nil {
+		h.app.Logger.Error("Failed to get user for password change", "userID", userID, "error", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user"})
+		return
+	}
+
+	// Verify current password
+	err = h.app.AuthRepo.VerifyPassword(c.Request.Context(), user.Email, req.CurrentPassword)
+	if err != nil {
+		h.app.Logger.Warn("Password change failed - incorrect current password", "userID", user.ID, "email", user.Email)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "current password is incorrect"})
+		return
+	}
+
+	// Change password
+	err = h.app.AuthRepo.ChangePassword(c.Request.Context(), user.ID.String(), req.NewPassword)
+	if err != nil {
+		h.app.Logger.Error("Failed to change password", "userID", user.ID, "error", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to change password"})
+		return
+	}
+
+	h.app.Logger.Info("Password changed successfully", "userID", user.ID, "email", user.Email)
+	c.JSON(http.StatusOK, gin.H{"message": "password changed successfully"})
 }

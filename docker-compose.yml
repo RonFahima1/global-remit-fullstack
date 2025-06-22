@@ -12,6 +12,8 @@ services:
       - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres_snapshot.sql:/docker-entrypoint-initdb.d/postgres_snapshot.sql:ro
+      - ./scripts/postgres-init.sh:/docker-entrypoint-initdb.d/01_postgres-init.sh:ro
     networks:
       - backend_network
 
@@ -24,8 +26,9 @@ services:
       - backend_network
 
   backend:
-    build:
-      context: ./backend
+    # build:
+    #   context: ./backend
+    image: yourrepo/backend:latest
     container_name: backend
     ports:
       - "8080:8080"
@@ -34,6 +37,8 @@ services:
       - redis
     volumes:
       - ./secrets:/app/secrets
+      - ./backend/jwt_private.pem:/app/jwt_private.pem
+      - ./backend/jwt_public.pem:/app/jwt_public.pem
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
@@ -41,45 +46,11 @@ services:
       - DB_PASSWORD=postgres
       - DB_NAME=global_remit
       - REDIS_HOST=redis
-      - JWT_PRIVATE_KEY=|
-        -----BEGIN PRIVATE KEY-----
-        MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCbhhFI3vi5zzjV
-        zHL/Vdb4BmXCV9ospmpLVIPaGT7My/GkmPXUcDnUw2OxvQiK2X2TqJkVFSYxhLwk
-        nfbhIqHdVlqZAdaQUzaagmsGgN0YaEklYxbbaZjCEHFYyQXFYhjkE/4n5NwRgQzH
-        lbE9KNIl65gEO6/UiB8JCQJGGQ3y3dP3up/0zl5DSiiczFDAmysN7b7KwW6aIgt9
-        MYumVjEzaWpULmHYHKZIpJJ0KjjsAJp0YT5r5KC41iRF1SdTtbm9qziHg/DvthGo
-        xV62nLU2L6aJojGTOwUIAYRPDDPkd5TAI7S07uR7dvwGun0+42u3rfwR9Vr9+Q+a
-        ab1txwFrAgMBAAECggEAPOwtTC7wHxVyTaobqDMvlRQoe5Nfh1sfS2gNiHuYMrB3
-        dcNnlTLrLJHntUH4HTAqdZO3d99DiWVWMD/i7HldD+/aaJKkQwAd5TPOigsj0QJV
-        GPyygPviF69KP33rsVEGsB2201je7kpvv6U/e1ZI0Ar0jz/0VlyGT8tEJUJ+SNMJ
-        DgUQE3kPMD4cJO3f9Q//XCApaXwir5EKQBUqP7vffqXDCv6PbstAxEdg4EDGBEQE
-        +NS93ZtVoUM3jgtVM8HMvRUk7muzwneH6++aUhyErnwjux0U9Ut9Q5jM5V4IraBp
-        jLgZHxs579YclHOIW74keUxcmtmbXK1G6+CZ1gXYZQKBgQDWnhqny2F+/t3bhUqV
-        54TJEFMUQy5YCyam85ggJK52qxBH+q4mxzoOoXnmvrlHOdAaDp4y5ChiQ7depgjP
-        0pYQMa+arcHrddN2SeCh3kFlELw1H/D6H9ov5gl9NLWhwuiKkAXxkPydrvnepgce
-        oscUd81ElfM7BUm/gtEvJA2l9wKBgQC5gvyPqto1+9IYD8YB9Q2+NpZq9AMRvDOh
-        WqIWSzaRHBZTk9/is+G0TTHtuv+7Z4fRIBjYV3mZsCtknw5yd5XusTGUIerN2NLK
-        9hM6e3ECOhgia0ZPA+O3XwFfESzA+MnOfZ7LHurK1ZADF2/gqzFnbJ9q6gUGSUzU
-        rh1K8oyTLQKBgQCm2HD2g2k/Nlo5n6z1TvBu8y7zMKslrT2WSwe37WxoOuLEYoDj
-        Crz6xNQk657UXYCH0VdxTuiKRASZI1D0Z81bt5TCFlUMfSQw8Iweqs+CB3mZf0Ry
-        3zJbTGWSHdkacZEgr4i/XKzW1UHRspcUXQ2RvvUoXb6i4qCLruJ62Hd3zwKBgG9/
-        uQkoqWrU5husL1ixzwbKjHHQI6AfO/D5Jn67yhpBhXHKaUA62aei1iWKxXX/7fPV
-        lNlDCkVDS3F44BgQpD8IpUHheN0sOtXePQRjeTLbc/IMBAAt2Eo4gfx/uCRr4++G
-        NVDkTj6HSb1x8r5YZqNA+DgsW8TBfbo+xEBts+wpAoGAWtwqHs5nlCkitx43YaQi
-        fZnAAElAXT5aw5J4Uqux2oNRuN0HtZSESW/QyNeCNDla3VI9rT9nCs9i8vaJMwkx
-        D4N7iIUDknQD00w400NKmzofFYKPe9awwrbadM8yEvd33n54fCnKzhhkwYAYJ/9Z
-        N4442+YFahXS830rEFMOP8k=
-        -----END PRIVATE KEY-----
-      - JWT_PUBLIC_KEY=|
-        -----BEGIN PUBLIC KEY-----
-        MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAm4YRSN74uc841cxy/1XW
-        +AZlwlfaLKZqS1SD2hk+zMvxpJj11HA51MNjsb0Iitl9k6iZFRUmMYS8JJ324SKh
-        3VZamQHWkFM2moJrBoDdGGhJJWMW22mYwhBxWMkFxWIY5BP+J+TcEYEMx5WxPSjS
-        JeuYBDuv1IgfCQkCRhkN8t3T97qf9M5eQ0oonMxQwJsrDe2+ysFumiILfTGLplYx
-        M2lqVC5h2BymSKSSdCo47ACadGE+a+SguNYkRdUnU7W5vas4h4Pw77YRqMVetpy1
-        Ni+miaIxkzsFCAGETwwz5HeUwCO0tO7ke3b8Brp9PuNrt638EfVa/fkPmmm9bccB
-        awIDAQAB
-        -----END PUBLIC KEY-----
+      - REDIS_PORT=6379
+      - APP_PORT=8080
+      - GIN_MODE=debug
+      - JWT_PRIVATE_KEY=/app/jwt_private.pem
+      - JWT_PUBLIC_KEY=/app/jwt_public.pem
     networks:
       - backend_network
 
@@ -109,8 +80,9 @@ services:
       - backend_network
 
   frontend:
-    build:
-      context: ./Frontend
+    # build:
+    #   context: ./Frontend
+    image: yourrepo/frontend:latest
     container_name: frontend
     ports:
       - "3000:3000"
@@ -120,6 +92,8 @@ services:
       - NODE_ENV=production
       - NEXTAUTH_URL=http://localhost:3000
       - BACKEND_URL=http://backend:8080/api/v1
+      - NEXTAUTH_SECRET=jGTFs40CXzVaYc/n8Dle4YADBINMI3dZf31Blcwhcwk=
+      - REDIS_URL=redis://redis:6379
     networks:
       - backend_network
 

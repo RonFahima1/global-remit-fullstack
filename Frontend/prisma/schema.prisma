@@ -34,11 +34,16 @@ model User {
   position           String?
   postalCode         String?
   state              String?
-  status             UserStatus       @default(ACTIVE)
+  status             UserStatus       @default(PENDING_VERIFICATION)
   role               UserRole         @default(AGENT_USER)
   organizationId     String?
   agentId            String?
   territory          String[]
+  mustChangePassword Boolean          @default(false)
+  terminationDate    DateTime?
+  username           String?          @unique
+  firstName          String?
+  lastName           String?
   accounts           Account[]
   documents          Document[]
   passkeys           Passkey[]
@@ -55,6 +60,8 @@ model User {
   @@index([updatedAt])
   @@index([organizationId])
   @@index([agentId])
+  @@index([username])
+  @@index([status])
 }
 
 model Passkey {
@@ -147,17 +154,20 @@ model Invitation {
 
 enum UserRole {
   ORG_ADMIN
-  ORG_USER
   AGENT_ADMIN
   AGENT_USER
   COMPLIANCE_USER
+  ORG_USER
+  GLOBAL_VIEWER
 }
 
 enum UserStatus {
+  PENDING_VERIFICATION
   ACTIVE
-  INACTIVE
+  DISABLED
   SUSPENDED
-  PENDING
+  LOCKED
+  DELETED
 }
 
 enum OnboardingStatus {

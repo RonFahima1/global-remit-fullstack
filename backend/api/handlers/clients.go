@@ -113,7 +113,8 @@ func (h *ClientHandler) CreateClient(c *gin.Context) {
 func (h *ClientHandler) GetClients(c *gin.Context) {
 	clients, err := h.repo.GetClients(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get clients"})
+		log.Printf("GetClients error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get clients", "detail": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, clients)

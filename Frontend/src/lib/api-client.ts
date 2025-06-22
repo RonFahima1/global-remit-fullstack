@@ -57,7 +57,7 @@ apiClient.interceptors.response.use(
         // If refresh fails, log the user out
         console.error('Failed to refresh token:', refreshError);
         await signOut({ redirect: false });
-        window.location.href = 'http://localhost:3000/login';
+        window.location.href = process.env.NEXT_PUBLIC_UI_URL ? `${process.env.NEXT_PUBLIC_UI_URL}/login` : 'http://localhost:3000/login'; // Never change port number here. Use canonical port from env/config.
       }
     }
     

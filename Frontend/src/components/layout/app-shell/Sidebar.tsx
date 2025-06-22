@@ -10,6 +10,8 @@ import { Logo } from "@/components/ui/logo";
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { NavItem } from "./types";
 import { useLanguage } from "@/components/providers/LanguageProvider";
+import { hasPagePermission } from '@/app/permissions';
+import { useCurrentUser } from '@/context/CurrentUserContext';
 
 interface SidebarProps {
   navItems: NavItem[];
@@ -33,6 +35,8 @@ export function Sidebar({
   const pathname = usePathname();
   const { direction } = useLanguage();
   const sidebarWidth = isCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED;
+  const user = useCurrentUser();
+  const filteredNavItems = navItems.filter(item => hasPagePermission(user?.permissions || [], item.href));
 
   return (
     <aside
@@ -54,8 +58,6 @@ export function Sidebar({
           onClick={toggleCollapsed}
         >
           <Logo 
-            size={isCollapsed ? 32 : 40} 
-            isIcon={isCollapsed} 
             showText={!isCollapsed} 
             className="hover:scale-105" 
           />
@@ -64,7 +66,7 @@ export function Sidebar({
       <div className={cn("flex-1 overflow-y-auto transition-all duration-300", isCollapsed ? "py-4" : "py-8")}>
         <nav className={cn("flex flex-col gap-2", isCollapsed ? "px-2" : "px-4")}>
           <TooltipProvider delayDuration={0}>
-            {navItems.map((item) => {
+            {filteredNavItems.map((item) => {
               const isActive = pathname === item.href;
               const navLink = (
                 <Link

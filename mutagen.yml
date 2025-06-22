@@ -1,0 +1,29 @@
+sync:
+  backend:
+    alpha: ./backend
+    beta: volume://projectroot_backend:/app
+    mode: two-way-resolved
+    ignore:
+      - .git
+      - node_modules
+      - '*.log'
+      - db/
+      - scripts/
+      - '*.md'
+      - '*.DS_Store'
+      - .env*
+  frontend:
+    alpha: ./Frontend
+    beta: volume://projectroot_frontend:/app
+    mode: two-way-resolved
+    ignore:
+      - .git
+      - node_modules
+      - '*.log'
+      - docs/
+      - e2e/
+      - test-results/
+      - playwright-report/
+      - '*.md'
+      - '*.DS_Store'
+      - .env* 

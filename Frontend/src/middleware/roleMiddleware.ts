@@ -22,6 +22,8 @@ const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   // Add more routes as needed
 };
 
+const UI_URL = process.env.NEXT_PUBLIC_UI_URL || 'http://localhost:3000'; // Never change port number here. Use canonical port from env/config.
+
 export async function roleMiddleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   
@@ -42,7 +44,7 @@ export async function roleMiddleware(request: NextRequest) {
 
     // If no token, redirect to login
     if (!token) {
-      const loginUrl = new URL('http://localhost:3000/login');
+      const loginUrl = new URL(`${UI_URL}/login`);
       loginUrl.searchParams.set('callbackUrl', pathname);
       return NextResponse.redirect(loginUrl);
     }
@@ -61,7 +63,7 @@ export async function roleMiddleware(request: NextRequest) {
     return NextResponse.next();
   } catch (error) {
     console.error('Role middleware error:', error);
-    return NextResponse.redirect('http://localhost:3000/login');
+    return NextResponse.redirect(`${UI_URL}/login`);
   }
 }
 

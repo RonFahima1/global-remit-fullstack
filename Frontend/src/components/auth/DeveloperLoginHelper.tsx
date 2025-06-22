@@ -3,59 +3,62 @@
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Bot, UserCheck, Loader2 } from 'lucide-react';
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
-// Test users configuration
+// Test users configuration - must match seeded users in the database
+// All users have password: 'password'
 const TEST_USERS = [
-  {
-    id: 'test-admin',
-    email: 'test@example.com',
-    role: 'ORG_ADMIN',
-    password: 'Password123!',
-    label: 'Test Admin',
-    color: 'bg-blue-500 hover:bg-blue-600'
-  },
   {
     id: 'org-admin',
     email: 'orgadmin@example.com',
     role: 'ORG_ADMIN',
-    password: 'Password123!',
+    password: 'password',
     label: 'Org Admin',
-    color: 'bg-purple-500 hover:bg-purple-600'
+    color: 'bg-purple-600 hover:bg-purple-700',
+    icon: '👑',
+    description: 'Full system access with administrative privileges'
   },
   {
     id: 'agent-admin',
     email: 'agentadmin@example.com',
     role: 'AGENT_ADMIN',
-    password: 'Password123!',
+    password: 'password',
     label: 'Agent Admin',
-    color: 'bg-green-500 hover:bg-green-600'
+    color: 'bg-green-600 hover:bg-green-700',
+    icon: '🛡️',
+    description: 'Manage agents and view all agent activities'
   },
   {
     id: 'agent-user',
     email: 'agentuser@example.com',
     role: 'AGENT_USER',
-    password: 'Password123!',
-    label: 'Agent User',
-    color: 'bg-orange-500 hover:bg-orange-600'
+    password: 'password',
+    label: 'Agent',
+    color: 'bg-blue-600 hover:bg-blue-700',
+    icon: '👤',
+    description: 'Standard agent with transaction capabilities'
   },
   {
     id: 'compliance-user',
     email: 'complianceuser@example.com',
     role: 'COMPLIANCE_USER',
-    password: 'Password123!',
-    label: 'Compliance User',
-    color: 'bg-red-500 hover:bg-red-600'
+    password: 'password',
+    label: 'Compliance',
+    color: 'bg-yellow-600 hover:bg-yellow-700',
+    icon: '🔍',
+    description: 'Review and approve transactions'
   },
   {
     id: 'org-user',
     email: 'orguser@example.com',
     role: 'ORG_USER',
-    password: 'Password123!',
+    password: 'password',
     label: 'Org User',
-    color: 'bg-gray-500 hover:bg-gray-600'
+    color: 'bg-gray-600 hover:bg-gray-700',
+    icon: '👥',
+    description: 'Basic organization user with limited access'
   }
 ];
 
@@ -78,20 +81,20 @@ export function DeveloperLoginHelper({
   const router = useRouter();
   const [loadingUser, setLoadingUser] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+  // We don't need to store toast references since we're not manually dismissing toasts
 
-  // Show only in development mode
-  if (process.env.NODE_ENV !== 'development') {
-    return null;
-  }
+  // Developer login helper is now visible in all environments for testing purposes
 
   const handleOneClickLogin = async (user: typeof TEST_USERS[0]) => {
     if (loadingUser) return; // Prevent multiple simultaneous logins
     
     setLoadingUser(user.id);
     
+      // Show loading toast
     toast({
-      title: `Logging in as ${user.label}`,
-      description: `Role: ${user.role}`,
+      title: `🔐 Logging in...`,
+      description: `Signing in as ${user.label} (${user.role})`,
+      variant: 'default',
     });
 
     try {
@@ -104,19 +107,29 @@ export function DeveloperLoginHelper({
       });
 
       if (result?.error) {
-        throw new Error(result.error);
+        // Handle specific error cases
+        let errorMessage = result.error;
+        if (result.error.includes('password')) {
+          errorMessage = 'Incorrect password';
+        } else if (result.error.includes('locked')) {
+          errorMessage = 'Account is temporarily locked';
+        }
+        throw new Error(errorMessage);
       }
 
       if (result?.ok) {
+        // Show success toast
         toast({
-          title: "✅ Login Successful!",
+          title: "✅ Login Successful",
           description: `Welcome, ${user.label} (${user.role})`,
+          variant: 'default',
         });
         
-        // Use window.location for reliable redirect
+        // Small delay before redirect to show success message
+        await new Promise(resolve => setTimeout(resolve, 500));
         window.location.href = '/dashboard';
       } else {
-        throw new Error('Login failed - no response');
+        throw new Error('Login failed - no response from server');
       }
       
     } catch (error) {
@@ -124,13 +137,21 @@ export function DeveloperLoginHelper({
       
       // Fallback: Try form automation
       try {
+        toast({
+          title: "🔄 Trying alternative login method...",
+          description: `Attempting to sign in as ${user.label}`,
+          variant: 'default',
+        });
+        
         await handleFormAutomation(user);
       } catch (fallbackError) {
+        console.error('Fallback login error:', fallbackError);
         toast({
           variant: "destructive",
           title: "❌ Login Failed",
-          description: `Failed to login as ${user.label}. Please try manually.`,
+          description: `Failed to login as ${user.label}: ${error instanceof Error ? error.message : 'Unknown error'}`,
         });
+        // Error handling complete
       }
     } finally {
       setLoadingUser(null);
@@ -206,32 +227,35 @@ export function DeveloperLoginHelper({
                 key={user.id}
                 onClick={() => handleOneClickLogin(user)}
                 disabled={!!loadingUser}
-                className={`w-full justify-start text-left h-auto p-3 ${user.color} text-white border-0`}
+                className={`w-full justify-start text-left h-auto p-3 ${user.color} text-white border-0 transition-all hover:shadow-md`}
               >
                 <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center gap-2">
-                    {loadingUser === user.id ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <UserCheck size={16} />
-                    )}
+                  <div className="flex items-center gap-3">
+                    <div className="text-xl">{user.icon}</div>
                     <div>
-                      <div className="font-medium">{user.label}</div>
-                      <div className="text-xs opacity-90">{user.role}</div>
+                      <div className="font-medium flex items-center gap-2">
+                        {loadingUser === user.id && (
+                          <Loader2 size={14} className="animate-spin" />
+                        )}
+                        {user.label}
+                      </div>
+                      <div className="text-xs opacity-90 mt-0.5">{user.role}</div>
+                      <div className="text-xs opacity-70 mt-1 line-clamp-1">{user.description}</div>
                     </div>
                   </div>
-                  {loadingUser === user.id && (
-                    <div className="text-xs">Logging in...</div>
-                  )}
+                  <div className="text-xs bg-black/10 dark:bg-white/10 px-2 py-1 rounded">
+                    {user.email.split('@')[0]}
+                  </div>
                 </div>
               </Button>
             ))}
           </div>
 
           {/* Footer */}
-          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-            <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
-              Development Mode • All users: Password123!
+          <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <div className="text-xs text-gray-500 dark:text-gray-400 text-center space-y-1">
+              <div>Development Mode • All users: <span className="font-mono">password</span></div>
+              <div className="text-2xs opacity-75">Click any user to log in automatically</div>
             </div>
           </div>
         </div>

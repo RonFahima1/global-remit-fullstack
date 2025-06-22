@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
 	"time"
 
 	cryptorand "crypto/rand"
@@ -30,7 +31,8 @@ type TestUser struct {
 
 func main() {
 	numClients := flag.Int("clients", 100, "Number of clients to generate")
-	dbURL := flag.String("db", "postgres://postgres:yourpassword@localhost:5434/global_remit?sslmode=disable", "Database connection string")
+	dbPort := os.Getenv("DB_PORT") // Never change port number here. Use canonical port from env/config.
+	dbURL := flag.String("db", fmt.Sprintf("postgres://postgres:yourpassword@localhost:%s/global_remit?sslmode=disable", dbPort), "Database connection string")
 	flag.Parse()
 
 	db, err := sql.Open("postgres", *dbURL)

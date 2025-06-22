@@ -8,6 +8,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -19,29 +20,58 @@ var (
 	publicKey  *rsa.PublicKey
 )
 
-// LoadKeys loads RSA keys from environment variables (not files)
+// LoadKeys loads RSA keys from environment variables (can be file paths or direct PEM content)
 func LoadKeys() error {
 	privPEM := os.Getenv("JWT_PRIVATE_KEY")
 	pubPEM := os.Getenv("JWT_PUBLIC_KEY")
 	if privPEM == "" || pubPEM == "" {
 		return errors.New("JWT_PRIVATE_KEY and JWT_PUBLIC_KEY env vars required")
 	}
+
+	// Check if the values are file paths
+	var privContent, pubContent []byte
+	var err error
+
+	// Handle private key
+	if strings.HasPrefix(privPEM, "/") || strings.HasPrefix(privPEM, "./") {
+		// It's a file path
+		privContent, err = os.ReadFile(privPEM)
+		if err != nil {
+			return errors.New("failed to read private key file: " + err.Error())
+		}
+	} else {
+		// It's direct PEM content
+		privContent = []byte(privPEM)
+	}
+
+	// Handle public key
+	if strings.HasPrefix(pubPEM, "/") || strings.HasPrefix(pubPEM, "./") {
+		// It's a file path
+		pubContent, err = os.ReadFile(pubPEM)
+		if err != nil {
+			return errors.New("failed to read public key file: " + err.Error())
+		}
+	} else {
+		// It's direct PEM content
+		pubContent = []byte(pubPEM)
+	}
+
 	// Decode private key
-	privBlock, _ := pem.Decode([]byte(privPEM))
+	privBlock, _ := pem.Decode(privContent)
 	if privBlock == nil {
 		return errors.New("invalid private key PEM")
 	}
-	var err error
-	privateKey, err = jwt.ParseRSAPrivateKeyFromPEM([]byte(privPEM))
+	privateKey, err = jwt.ParseRSAPrivateKeyFromPEM(privContent)
 	if err != nil {
 		return err
 	}
+
 	// Decode public key
-	pubBlock, _ := pem.Decode([]byte(pubPEM))
+	pubBlock, _ := pem.Decode(pubContent)
 	if pubBlock == nil {
 		return errors.New("invalid public key PEM")
 	}
-	publicKey, err = jwt.ParseRSAPublicKeyFromPEM([]byte(pubPEM))
+	publicKey, err = jwt.ParseRSAPublicKeyFromPEM(pubContent)
 	if err != nil {
 		return err
 	}

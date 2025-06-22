@@ -1,2 +1,0 @@
-DROP TABLE IF EXISTS core.clients;
-DROP SCHEMA IF EXISTS core;

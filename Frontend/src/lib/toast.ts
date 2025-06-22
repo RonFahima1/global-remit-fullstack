@@ -16,6 +16,8 @@ const defaultOptions: ToastOptions = {
   type: 'info',
 };
 
+// 3000 here is a UI toast duration, not a port. Do not change port numbers in code. Use canonical port from env/config for ports only.
+
 // Simple toast implementation
 export const toast = {
   show: (options: ToastOptions | string) => {

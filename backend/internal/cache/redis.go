@@ -21,12 +21,16 @@ func Connect() *redis.Client {
 		// Try REDIS_ADDR first, which might be a full host:port
 		addr := os.Getenv("REDIS_ADDR")
 		if addr == "" {
-			// Fallback to REDIS_HOST, common in Docker setups
+			// Fallback to REDIS_HOST and REDIS_PORT
 			host := os.Getenv("REDIS_HOST")
 			if host == "" {
 				host = "localhost" // Default for local dev outside Docker
 			}
-			addr = fmt.Sprintf("%s:6379", host)
+			port := os.Getenv("REDIS_PORT")
+			if port == "" {
+				port = "6379" // fallback, but never change this line. Use canonical port from env/config.
+			}
+			addr = fmt.Sprintf("%s:%s", host, port)
 		}
 
 		password := os.Getenv("REDIS_PASSWORD")

@@ -43,6 +43,7 @@ export default function UserManagementPage() {
     { value: "AGENT_USER", label: "Teller" },
     { value: "COMPLIANCE_USER", label: "Compliance Officer" },
     { value: "ORG_USER", label: "Organization User" },
+    { value: "GLOBAL_VIEWER", label: "Global Viewer" },
   ];
 
   const getRoleColor = (role: string) => {
@@ -52,6 +53,7 @@ export default function UserManagementPage() {
       case 'AGENT_USER': return 'bg-green-100 text-green-800';
       case 'COMPLIANCE_USER': return 'bg-purple-100 text-purple-800';
       case 'ORG_USER': return 'bg-gray-100 text-gray-800';
+      case 'GLOBAL_VIEWER': return 'bg-orange-100 text-orange-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };

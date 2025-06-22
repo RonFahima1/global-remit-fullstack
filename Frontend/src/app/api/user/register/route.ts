@@ -1,45 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
+
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
 
 export async function POST(req: NextRequest) {
-  const { token, firstName, lastName, password } = await req.json();
+  const { token, firstName, lastName, password, phone, department, position } = await req.json();
   if (!token || !firstName || !lastName || !password) {
-    return NextResponse.json({ error: 'All fields required' }, { status: 400 });
+    return NextResponse.json({ error: 'All required fields must be provided' }, { status: 400 });
   }
 
-  // Find invitation
-  const invitation = await prisma.invitation.findUnique({ where: { token } });
-  if (!invitation) {
-    return NextResponse.json({ error: 'Invalid or expired invitation' }, { status: 400 });
+  try {
+    // Call backend API to accept invitation and create user
+    const response = await fetch(`${BACKEND_URL}/api/v1/invitations/accept`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        token,
+        first_name: firstName,
+        last_name: lastName,
+        password,
+        phone: phone || '',
+        department: department || '',
+        position: position || '',
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return NextResponse.json({ error: errorData.error || 'Failed to create user' }, { status: response.status });
+    }
+
+    const data = await response.json();
+    
+    return NextResponse.json({ 
+      success: true, 
+      user: { 
+        id: data.user_id, 
+        email: data.email, 
+        role: data.role 
+      } 
+    });
+  } catch (error) {
+    console.error('Error creating user:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-  if (invitation.usedAt || invitation.expiresAt < new Date()) {
-    return NextResponse.json({ error: 'Invitation expired or already used' }, { status: 400 });
-  }
-
-  // Check if user already exists
-  const existingUser = await prisma.user.findUnique({ where: { email: invitation.email } });
-  if (existingUser) {
-    return NextResponse.json({ error: 'User already exists' }, { status: 409 });
-  }
-
-  // Create user
-  const hashed = await bcrypt.hash(password, 10);
-  const user = await prisma.user.create({
-    data: {
-      email: invitation.email,
-      name: `${firstName} ${lastName}`,
-      password: hashed,
-      role: invitation.role,
-      status: 'ACTIVE',
-      createdBy: invitation.invitedBy ? String(invitation.invitedBy) : null,
-      organizationId: invitation.organization || null,
-      agentId: invitation.agentId || null,
-    },
-  });
-
-  // Mark invitation as used
-  await prisma.invitation.update({ where: { token }, data: { usedAt: new Date() } });
-
-  return NextResponse.json({ success: true, user: { id: user.id, email: user.email, role: user.role } });
 } 

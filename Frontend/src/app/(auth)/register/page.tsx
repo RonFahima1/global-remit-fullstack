@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 
+const UI_URL = process.env.NEXT_PUBLIC_UI_URL || 'http://localhost:3000'; // Never change port number here. Use canonical port from env/config.
+
 function RegisterFormWithParams() {
   const router = useRouter();
   const params = useSearchParams();
@@ -66,7 +68,7 @@ function RegisterFormWithParams() {
     });
     if (res.ok) {
       setSuccess(true);
-      setTimeout(() => router.push("http://localhost:3000/login"), 2000);
+      setTimeout(() => router.push(`${UI_URL}/login`), 2000);
     } else {
       const data = await res.json();
       setError(data.error || "Registration failed.");
@@ -91,7 +93,7 @@ function RegisterFormWithParams() {
           </CardHeader>
           <CardContent>
             <div className="text-red-600 mb-4">{error}</div>
-            <Button onClick={() => router.push("http://localhost:3000/login")}>Go to Login</Button>
+            <Button onClick={() => router.push(`${UI_URL}/login`)}>Go to Login</Button>
           </CardContent>
         </Card>
       </div>

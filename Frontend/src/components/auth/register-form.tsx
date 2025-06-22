@@ -73,7 +73,7 @@ export function RegisterForm() {
         title: 'Registration successful',
         description: 'Please check your email to verify your account.',
       });
-      router.push('http://localhost:3000/login');
+      router.push(process.env.NEXT_PUBLIC_UI_URL ? `${process.env.NEXT_PUBLIC_UI_URL}/login` : 'http://localhost:3000/login'); // Never change port number here. Use canonical port from env/config.
     } catch (err) {
       if (!response || response.ok) {
         toast({
