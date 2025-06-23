@@ -8,7 +8,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 
-	"backend/config"
+	"global-remit-backend/config"
 )
 
 // Connect establishes a connection to the PostgreSQL database

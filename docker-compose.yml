@@ -14,6 +14,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres_snapshot.sql:/docker-entrypoint-initdb.d/postgres_snapshot.sql:ro
       - ./scripts/postgres-init.sh:/docker-entrypoint-initdb.d/01_postgres-init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d global_remit"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     networks:
       - backend_network
 
@@ -26,15 +31,18 @@ services:
       - backend_network
 
   backend:
-    # build:
-    #   context: ./backend
-    image: yourrepo/backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    # image: yourrepo/backend:latest
     container_name: backend
     ports:
       - "8080:8080"
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     volumes:
       - ./secrets:/app/secrets
       - ./backend/jwt_private.pem:/app/jwt_private.pem
@@ -80,19 +88,23 @@ services:
       - backend_network
 
   frontend:
-    # build:
-    #   context: ./Frontend
-    image: yourrepo/frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: dev
+    # image: yourrepo/frontend:latest
     container_name: frontend
     ports:
       - "3000:3000"
     depends_on:
       - backend
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
+      - NEXT_PUBLIC_APP_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
       - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=your-secret-key-here
       - BACKEND_URL=http://backend:8080/api/v1
-      - NEXTAUTH_SECRET=jGTFs40CXzVaYc/n8Dle4YADBINMI3dZf31Blcwhcwk=
       - REDIS_URL=redis://redis:6379
     networks:
       - backend_network

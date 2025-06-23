@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"backend/internal/domain"
-	"backend/internal/repository"
-	"backend/pkg/db"
+	"global-remit-backend/internal/domain"
+	"global-remit-backend/internal/repository"
+	"global-remit-backend/pkg/db"
 	"context"
 
 	_ "github.com/lib/pq"

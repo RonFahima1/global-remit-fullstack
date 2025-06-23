@@ -68,33 +68,81 @@ export default function LoginPage() {
   }, []);
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPasswordLoading(true);
-    const toastId = toastLoading("Signing in...");
+    console.log('=== handlePasswordLogin START ===');
+    console.log('Event type:', e.type);
+    console.log('Form values:', { email, password: password ? '[REDACTED]' : 'empty' });
+    
+    // Initialize toastId as an empty string
+    let toastId = '';
+    
     try {
+      e.preventDefault();
+      console.log('Prevented default form submission');
+      
+      setPasswordLoading(true);
+      console.log('Set loading state to true');
+      
+      // Show loading toast and store the ID
+      const newToastId = toastLoading("Signing in...");
+      if (newToastId) {
+        toastId = newToastId;
+        console.log('Showing loading toast with ID:', toastId);
+      } else {
+        console.warn('Failed to create loading toast');
+      }
+      
+      console.log('Calling signIn with credentials...');
       const result = await signIn('credentials', { 
         email, 
         password, 
         redirect: false, 
         callbackUrl: '/dashboard' 
       });
-      toastDismiss(toastId);
       
-      if (result?.error) {
-        setError(result.error);
-        toastError(`Login Failed: ${result.error}`);
-        return;
+      console.log('=== signIn RESULT ===');
+      console.log('Result received:', JSON.stringify(result, null, 2));
+      console.log('Error property:', result?.error);
+      console.log('OK property:', result?.ok);
+      
+      // Dismiss the loading toast if it exists
+      if (toastId) {
+        try {
+          toastDismiss(toastId);
+          console.log('Dismissed loading toast');
+          toastId = ''; // Clear the toastId after dismissing
+        } catch (toastError) {
+          console.error('Error dismissing toast:', toastError);
+        }
       }
       
-      if (result?.ok) {
-        toastSuccess("Login Successful!");
-        // Use window.location for reliable redirect
-        window.location.href = '/dashboard';
+      if (result) {
+        if (result.error) {
+          console.error('❌ Login error:', result.error);
+          setError(result.error);
+          toastError(`Login Failed: ${result.error}`);
+        } else if (result.ok) {
+          console.log('✅ Login successful, redirecting to dashboard');
+          toastSuccess("Login Successful!");
+          // Use window.location for reliable redirect
+          const redirectUrl = result.url || '/dashboard';
+          console.log('Redirecting to:', redirectUrl);
+          window.location.href = redirectUrl;
+        } else {
+          console.error('❌ Unexpected result from signIn:', result);
+          setError('Unexpected response from server');
+          toastError('Login failed: Unexpected response');
+        }
+      } else {
+        console.error('❌ No result returned from signIn');
+        setError('No response from authentication service');
+        toastError('Login failed: No response');
       }
     } catch (err) {
+      console.error('Login error:', err);
       toastDismiss(toastId);
-      setError('Invalid email or password');
-      toastError('Invalid email or password');
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(errorMessage);
+      toastError(`Login Failed: ${errorMessage}`);
     } finally {
       setPasswordLoading(false);
     }
@@ -112,7 +160,7 @@ export default function LoginPage() {
       setSuccess(null);
 
       // Step 1: Generate authentication options
-      const generateResponse = await fetch('/api/passkey/authenticate', {
+      const generateResponse = await fetch('/api/v1/passkey/authenticate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'generate', email }),
@@ -128,7 +176,7 @@ export default function LoginPage() {
       const authenticationResponse = await startAuthentication(options);
 
       // Step 3: Verify authentication
-      const verifyResponse = await fetch('/api/passkey/authenticate', {
+      const verifyResponse = await fetch('/api/v1/passkey/authenticate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -143,10 +191,6 @@ export default function LoginPage() {
       }
 
       const { user: userData } = await verifyResponse.json();
-      
-      // Create session manually since we're not using NextAuth for passkey login
-      // In a real implementation, you'd want to integrate this with NextAuth
-      setSuccess('Passkey authentication successful!');
       
       // For demo purposes, we'll use the demo login
       await signIn('credentials', { email: 'demo@example.com', password: 'demo' });
@@ -270,7 +314,14 @@ export default function LoginPage() {
                 ref={formRef}
                 key="password-form"
                 className="space-y-6" 
-                onSubmit={handlePasswordLogin} 
+                onSubmit={(e) => {
+                  console.log('Form submitted, calling handlePasswordLogin...');
+                  handlePasswordLogin(e).catch(err => {
+                    console.error('Error in form submission:', err);
+                    setError(err.message || 'An error occurred');
+                    toastError('Login failed: ' + (err.message || 'Unknown error'));
+                  });
+                }}
                 autoComplete="off"
               >
                 <div className="flex flex-col gap-1">

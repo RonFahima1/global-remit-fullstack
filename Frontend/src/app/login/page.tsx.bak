@@ -1,31 +1,31 @@
 'use client';
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useRef } from 'react';
-import { useToast } from "@/components/ui/use-toast";
-import { toast as hotToast } from 'react-hot-toast';
-import { Banknote, Key, ArrowRight, Fingerprint } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { signIn } from "next-auth/react";
-import { DeveloperLoginHelper } from '@/components/auth/DeveloperLoginHelper';
-import { cn } from "@/lib/utils";
-import { Logo } from "@/components/ui/logo";
-import { startAuthentication } from '@simplewebauthn/browser';
-import { EnhancedInput } from '@/components/ui/EnhancedInput';
-import { AnimatedButton } from '@/components/ui/AnimatedButton';
 
-// Microsoft blue four-square logo (no wordmark)
-function MicrosoftIcon({ className = "" }) {
-  return (
-    <svg className={className} width="22" height="22" viewBox="0 0 24 24" fill="none">
-      <rect x="2" y="2" width="9" height="9" fill="#0078D4"/>
-      <rect x="13" y="2" width="9" height="9" fill="#0078D4"/>
-      <rect x="2" y="13" width="9" height="9" fill="#0078D4"/>
-      <rect x="13" y="13" width="9" height="9" fill="#0078D4"/>
-    </svg>
-  );
+import { useRouter } from "next/navigation";
+import { useEffect, useState, useRef, FormEvent } from 'react';
+import { useToast } from "@/components/ui/use-toast";
+import { Eye, EyeOff, Loader2, Info, AlertCircle, CheckCircle } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { signIn, SignInResponse } from "next-auth/react";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { DeveloperLoginHelper } from "@/components/auth/DeveloperLoginHelper";
+
+// Types
+interface Quote {
+  id: number;
+  text: string;
+  author: string;
 }
 
-const QUOTES = [
+interface DebugLog {
+  time: string;
+  message: string;
+  data?: unknown;
+}
+
+// Constants
+const QUOTES: Quote[] = [
   {
     id: 1,
     text: "Global Remit made it so easy to support my family abroad. I feel secure and valued every step of the way.",
@@ -43,118 +43,277 @@ const QUOTES = [
   }
 ];
 
-export default function LoginPage() {
+// Get build time at module load time (will be the same for all users)
+const buildTime = new Date().toLocaleString('en-US', {
+  timeZone: 'Asia/Jerusalem',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false
+});
+
+// Microsoft blue four-square logo (no wordmark)
+function MicrosoftIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <rect x="2" y="2" width="9" height="9" fill="#0078D4"/>
+      <rect x="13" y="2" width="9" height="9" fill="#0078D4"/>
+      <rect x="2" y="13" width="9" height="9" fill="#0078D4"/>
+      <rect x="13" y="13" width="9" height="9" fill="#0078D4"/>
+    </svg>
+  );
+}
+
+const LoginPage = () => {
   const router = useRouter();
-  const { toast, loading, error: showError, success: showSuccess } = useToast();
+  const { toast } = useToast();
   
-  // State for form fields and UI
+  // Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'password' | 'passkey'>('password');
-  const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
-  const [isHovering, setIsHovering] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [quoteIdx, setQuoteIdx] = useState(0);
   
-  // Refs for form elements
+  // Refs
+  const formRef = useRef<HTMLFormElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
-  const formRef = useRef<HTMLFormElement>(null);
-
-  // Rotate quotes every 5 seconds if not hovering
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (!isHovering) {
-        setCurrentQuoteIndex((prev) => (prev + 1) % QUOTES.length);
-      }
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [isHovering]);
   
-  // Auto-focus email field on mount
-  useEffect(() => {
-    if (emailRef.current) {
-      emailRef.current.focus();
-    }
-  }, []);
+  // Debug logs
+  const [debugLogs, setDebugLogs] = useState<DebugLog[]>([]);
   
-  // Handle login method change
-  const handleLoginMethodChange = (method: 'password' | 'passkey') => {
-    setActiveTab(method);
-    setError(null);
-    setSuccess(null);
+  // Add log entry
+  const addDebugLog = (message: string, data?: unknown) => {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] ${message}`, data || '');
+    setDebugLogs(prev => [...prev, { time: timestamp, message, data }].slice(-50));
   };
-
-  const handlePasswordLogin = async (e: React.FormEvent) => {
+  
+  // Handle form submission
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setError(null);
-    setSuccess(null);
-    
-    // Show loading toast
-    const toastId = loading("Signing in...");
+    setIsLoading(true);
     
     try {
-      const result = await signIn('credentials', { 
-        email, 
-        password, 
-        redirect: false, 
-        callbackUrl: '/dashboard' 
+      addDebugLog('Login attempt', { email });
+      
+      if (!email || !password) {
+        throw new Error('Please fill in all fields');
+      }
+      
+      const result = await signIn('credentials', {
+        redirect: false,
+        email,
+        password,
+        callbackUrl: '/dashboard'
       });
       
-      // Dismiss loading toast
-      hotToast.dismiss(toastId);
+      addDebugLog('Login result', { success: !result?.error, error: result?.error });
       
       if (result?.error) {
-        const errorMessage = result.error === 'CredentialsSignin' 
-          ? 'Invalid email or password' 
-          : result.error;
-        
-        setError(errorMessage);
-        toast({
-          title: "Login Failed",
-          description: errorMessage,
-          variant: "destructive",
-        });
-        return;
+        throw new Error(result.error);
       }
       
-      if (result?.ok) {
-        toast({
-          title: "Login Successful!",
-          description: "Redirecting to your dashboard...",
-          variant: "default",
-        });
-        // Use window.location for reliable redirect
-        window.location.href = '/dashboard';
+      // Redirect on success
+      if (result?.url) {
+        window.location.href = result.url;
+      } else {
+        router.push('/dashboard');
       }
+      
     } catch (err) {
-      console.error('Login error:', err);
-      hotToast.dismiss(toastId);
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
       setError(errorMessage);
-      showError(`Login Error: ${errorMessage}`);
+      toast({
+        title: 'Login Failed',
+        description: errorMessage,
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
+    }
+  };
+  
+  // Auto-rotate quotes
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setQuoteIdx(prev => (prev + 1) % QUOTES.length);
+    }, 5000);
+    
+    return () => clearInterval(timer);
+  }, []);
+  
+  // Handle demo login
+  const handleDemoLogin = async () => {
+    setEmail('demo@example.com');
+    setPassword('demo123');
+    
+    // Trigger form submission after a short delay
+    setTimeout(() => {
+      formRef.current?.requestSubmit();
+    }, 100);
+  };
+  
+  // Current quote
+  const currentQuote = QUOTES[quoteIdx];
+  const [password, setPassword] = useState('');
+  
+  // Refs for form and input fields
+  const formRef = useRef<HTMLFormElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [showTos, setShowTos] = useState(true);
+  const [info, setInfo] = useState<string | null>(null);
+  // Define types for debug logging
+  type DebugLog = {
+    time: string;
+    message: string;
+    data?: unknown;
+  };
+  
+  const [debugInfo, setDebugInfo] = useState<DebugLog[]>([]);
+  
+  // Add a log entry to the debug info
+  const addDebugLog = (message: string, data?: unknown) => {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] ${message}`, data || '');
+    setDebugInfo((prev: DebugLog[]) => 
+      [...prev, { time: timestamp, message, data }].slice(-50)
+    );
+  };
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [loginMethod, setLoginMethod] = useState<'password' | 'passkey'>('password');
+  const { success: toastSuccess, error: toastError, loading: toastLoading, dismiss: toastDismiss } = useToast();
+
+
+  // Quote rotator
+  const [quoteIdx, setQuoteIdx] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setQuoteIdx((idx) => (idx + 1) % QUOTES.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handlePasswordLogin = async (e: React.FormEvent) => {
+    addDebugLog('Login form submitted', { email, hasPassword: !!password });
+    
+    // Reset states
+    setError(null);
+    setPasswordLoading(true);
+    
+    // Basic validation
+    if (!email || !password) {
+      const errorMsg = !email ? 'Email is required' : 'Password is required';
+      setError(errorMsg);
+      addDebugLog('Validation failed', { error: errorMsg });
+      setPasswordLoading(false);
+      return;
+    }
+    
+    // Prevent default form submission
+    e.preventDefault();
+    
+    // Reset states
+    setPasswordLoading(true);
+    setError(null);
+    
+    const toastId = toastLoading("Signing in...");
+    
+    try {
+      console.log('\n=== Preparing to call signIn ===');
+      const credentials = { 
+        email: email.trim(), 
+        password,
+        redirect: false
+      };
+      
+      // For NextAuth signIn, the third parameter is SignInOptions which includes callbackUrl as a string
+      // and other options, but not 'redirect' which should be in the credentials
+      const signInOptions = {
+        callbackUrl: '/dashboard'
+        // Note: redirect: false is already set in credentials
+      };
+      
+      console.log('Calling signIn with:', { 
+        provider: 'credentials',
+        credentials: { ...credentials, password: '***' },
+        options: signInOptions,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Log environment variables for debugging
+      console.log('Environment variables:', {
+        NODE_ENV: process.env.NODE_ENV,
+        NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+        NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+        isServer: typeof window === 'undefined'
+      });
+      
+      console.log('Initiating signIn...');
+      const startTime = Date.now();
+      
+      try {
+        const result = await signIn('credentials', credentials, signInOptions);
+        const endTime = Date.now();
+        console.log(`signIn completed in ${endTime - startTime}ms`);
+        console.log('signIn result:', result);
+        
+        toastDismiss(toastId);
+        
+        if (result?.error) {
+          console.error('Login error:', result.error);
+          setError(result.error);
+          toastError(`Login Failed: ${result.error}`);
+          return;
+        }
+        
+        if (result?.ok) {
+          console.log('Login successful, redirecting to:', result.url || '/dashboard');
+          toastSuccess("Login Successful!");
+          // Use window.location for reliable redirect
+          window.location.href = result.url || '/dashboard';
+        } else {
+          setError('Unexpected response from server');
+          toastError('Login failed: Unexpected response');
+        }
+      } catch (signInError) {
+        console.error('Error during signIn:', signInError);
+        toastDismiss(toastId);
+        setError('Failed to sign in. Please try again.');
+        toastError('Login failed. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error in handlePasswordLogin:', err);
+      toastDismiss(toastId);
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(errorMessage);
+      toastError(`Login Failed: ${errorMessage}`);
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
   const handlePasskeyLogin = async () => {
     if (!email) {
       setError('Please enter your email first');
-      showError("Email Required: Please enter your email address to continue with passkey login.");
       return;
     }
 
     try {
-      setIsLoading(true);
+      setPasskeyLoading(true);
       setError(null);
       setSuccess(null);
-
-      // Show loading toast for passkey
-      const toastId = loading("Initiating Passkey Login. Please follow your device's prompt to authenticate.");
 
       // Step 1: Generate authentication options
       const generateResponse = await fetch('/api/passkey/authenticate', {
@@ -164,17 +323,13 @@ export default function LoginPage() {
       });
 
       if (!generateResponse.ok) {
-        const errorData = await generateResponse.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to initiate passkey authentication');
+        throw new Error('No passkeys found for this email');
       }
 
       const { options } = await generateResponse.json();
 
       // Step 2: Start authentication on the client
       const authenticationResponse = await startAuthentication(options);
-      
-      // Dismiss the loading toast
-      toast.dismiss(toastId);
 
       // Step 3: Verify authentication
       const verifyResponse = await fetch('/api/passkey/authenticate', {
@@ -204,224 +359,243 @@ export default function LoginPage() {
       console.error('Passkey login error:', error);
       setError(error instanceof Error ? error.message : 'Passkey authentication failed');
     } finally {
-      setIsLoading(false);
+      setPasskeyLoading(false);
     }
   };
 
   const handleDemoLogin = async () => {
     setError(null);
     setSuccess(null);
-    const toastId = loading("Signing in as Demo User...");
+    const loadingToast = toastLoading("Signing in as Demo User...");
+    
     try {
+      // Set demo credentials
+      setEmail('demo@example.com');
+      setPassword('demo');
+      
+      // Sign in with credentials
       const result = await signIn('credentials', { 
         email: 'demo@example.com', 
-        password: 'demo', 
-        redirect: false, 
-        callbackUrl: '/dashboard' 
+        password: 'demo',
+        redirect: false
+      }, {
+        callbackUrl: '/dashboard'
       });
-      hotToast.dismiss(toastId);
+      
+      console.log('Demo login result:', result);
+      toastDismiss(loadingToast);
       
       if (result?.error) {
-        setError(result.error);
-        showError(`Demo Login Failed: ${result.error}`);
+        const errorMsg = result.error === 'CredentialsSignin' 
+          ? 'Invalid demo credentials. Please try again.' 
+          : result.error;
+        setError(errorMsg);
+        toastError(`Demo Login Failed: ${errorMsg}`);
         return;
       }
       
-      if (result?.ok) {
-        showSuccess("Demo Login Successful!");
-        // Use window.location for reliable redirect
-        window.location.href = '/dashboard';
-      }
+      // If we get here, login was successful
+      toastSuccess("Demo Login Successful!");
+      
+      // Use the result URL or default to dashboard
+      const redirectUrl = result?.url || '/dashboard';
+      console.log('Redirecting to:', redirectUrl);
+      
+      // Use window.location for reliable redirect
+      window.location.href = redirectUrl;
+      
     } catch (err) {
-      hotToast.dismiss(toastId);
-      setError('Demo login failed');
-      showError('Demo login failed');
+      console.error('Demo login error:', err);
+      toastDismiss(loadingToast);
+      const errorMessage = err instanceof Error ? err.message : 'Demo login failed';
+      setError(errorMessage);
+      toastError(`Demo Login Failed: ${errorMessage}`);
     }
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center p-4 sm:p-6 bg-gray-50/50 dark:bg-gray-900/50 backdrop-blur-sm">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.98, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-md h-[600px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-[32px] shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-700/50 flex flex-col"
-        style={{
-          boxShadow: '0 20px 50px -10px rgba(0, 0, 0, 0.1), 0 10px 30px -15px rgba(0, 0, 0, 0.05)',
-          maxWidth: 'calc(100vw - 2rem)',
-          maxHeight: 'calc(100vh - 2rem)'
-        }}
-      >
-        <div className="flex flex-col lg:flex-row h-full overflow-hidden">
+    <div className="min-h-screen flex items-start justify-center bg-gradient-to-br from-[#F5F5F7] to-[#E5E5EA] dark:from-gray-900 dark:to-gray-800 pt-8 sm:pt-20 font-['-apple-system','BlinkMacSystemFont','SF Pro Text',sans-serif]">
+      <div className="flex flex-col md:flex-row w-full max-w-5xl md:rounded-2xl rounded-xl shadow-[0_8px_32px_0_rgba(31,38,135,0.1)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] overflow-hidden bg-white/0 md:min-h-[350px] min-h-[55vh] mx-4">
         {/* Left: Blue Panel */}
-        <div className="bg-gradient-to-br from-[#0A84FF] to-[#007AFF] text-white p-8 md:p-10 lg:p-12 flex-1 flex flex-col justify-between relative overflow-hidden min-w-0">
-          {/* Decorative elements */}
-          <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-white/10 blur-xl" />
-          <div className="absolute -bottom-32 -left-32 w-80 h-80 rounded-full bg-white/5 blur-xl" />
-          
+        <div className="flex-1 bg-gradient-to-br from-[#0A84FF] to-[#007AFF] text-white flex flex-col justify-between p-4 sm:p-8 md:p-14 relative md:rounded-none rounded-t-xl md:rounded-l-3xl shadow-[0_8px_32px_0_rgba(10,132,255,0.1)] backdrop-blur-sm">
           {/* Top: Logo, Motto, Description */}
-          <div className="space-y-6 relative z-10">
-            <div className="flex items-center gap-3 transition-all duration-200 hover:scale-[1.02]">
-              <div className="relative flex items-center justify-center">
-                <img 
-                  src="/app-logo.png" 
-                  alt="Global Remit Logo" 
-                  className="h-12 w-auto drop-shadow-md" 
-                />
+          <div>
+            <div className="flex items-center gap-3 mb-10 transition-all duration-200 hover:scale-105">
+              <div className="relative inline-block transition-transform duration-200">
+                <img src="/app-logo.png" alt="Global Remit Logo" className="h-12 w-auto max-w-[96px]" />
               </div>
-              <span className="font-bold text-2xl md:text-3xl tracking-tight bg-gradient-to-r from-white to-white/90 bg-clip-text text-transparent">
-                Global Remit
-              </span>
+              <span className="font-bold text-2xl tracking-tight">Global Remit</span>
             </div>
-            <div className="space-y-3">
-              <div className="text-xl font-semibold text-white/95">Beyond Banking</div>
-              <div className="text-sm text-white/90 max-w-md leading-relaxed">
-                Your trusted partner for fast, secure international money transfers with competitive rates and robust compliance.
-              </div>
+            <div className="text-lg font-semibold mb-2">Beyond Banking</div>
+            <div className="text-sm text-white/80">Fast, secure international money transfers</div>
+            <div className="text-base opacity-90 mb-8 max-w-md">
+              Your trusted partner for fast, secure international money transfers with competitive rates and robust compliance.
             </div>
           </div>
           {/* Bottom: Animated Inspiring Quote */}
-          <div className="mt-6 md:mt-8 min-h-[100px]">
+          <div className="mt-10 min-h-[90px]">
             <AnimatePresence mode="wait">
               <motion.div
-                key={QUOTES[currentQuoteIndex].id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                className="space-y-2"
+                key={QUOTES[quoteIdx].id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.8 }}
+                className="italic text-white/70 text-base sm:text-lg"
               >
-                <div className="italic text-white/80 text-sm md:text-base">"{QUOTES[currentQuoteIndex].text}"</div>
-                <div className="text-xs md:text-sm font-medium opacity-90 not-italic">— {QUOTES[currentQuoteIndex].author}</div>
+                "{QUOTES[quoteIdx].text}"
+                <div className="mt-2 text-sm font-semibold opacity-80 not-italic">— {QUOTES[quoteIdx].author}</div>
               </motion.div>
             </AnimatePresence>
           </div>
         </div>
-        {/* Right: Login Form */}
-        <div className="flex-1 p-8 md:p-10 lg:p-12 bg-white dark:bg-gray-900 transition-colors duration-300 flex flex-col justify-center overflow-y-auto">
-          <div className="w-full max-w-sm mx-auto space-y-8 py-4">
-            <div className="space-y-3 text-center">
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Welcome Back</h2>
-              <p className="text-gray-500 dark:text-gray-400">Sign in to your account to continue</p>
-            </div>
-
-            {/* Login Method Tabs */}
-            <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100/80 dark:bg-gray-800/80 rounded-xl">
-              <button
-                onClick={() => setActiveTab('password')}
-                className={cn(
-                  "py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-200",
-                  "flex items-center justify-center",
-                  activeTab === 'password' 
-                    ? "bg-white dark:bg-gray-700/90 text-gray-900 dark:text-white shadow-sm backdrop-blur-sm" 
-                    : "text-gray-500 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-700/30"
-                )}
-              >
-                <Key className="w-4 h-4 mr-2 flex-shrink-0" />
-                <span>Password</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('passkey')}
-                className={cn(
-                  "py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-200",
-                  "flex items-center justify-center",
-                  activeTab === 'passkey' 
-                    ? "bg-white dark:bg-gray-700/90 text-gray-900 dark:text-white shadow-sm backdrop-blur-sm" 
-                    : "text-gray-500 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-700/30"
-                )}
-              >
-                <Fingerprint className="w-4 h-4 mr-2 flex-shrink-0" />
-                <span>Passkey</span>
-              </button>
-            </div>
-
-            {activeTab === 'password' ? (
-              <form 
-                ref={formRef}
-                key="password-form"
-                className="space-y-6" 
-                onSubmit={handlePasswordLogin} 
-                autoComplete="off"
-              >
-                <EnhancedInput
-                  ref={emailRef}
+        {/* Error Alert */}
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>
+              {error}
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {/* Success Alert */}
+        {success && (
+          <Alert className="mb-6 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+            <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <AlertTitle className="text-green-800 dark:text-green-200">Success</AlertTitle>
+            <AlertDescription className="text-green-700 dark:text-green-300">
+              {success}
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {/* Info Alert */}
+        {info && (
+          <Alert className="mb-6 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <AlertTitle className="text-blue-800 dark:text-blue-200">Info</AlertTitle>
+            <AlertDescription className="text-blue-700 dark:text-blue-300">
+              {info}
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        <div className="flex-1 bg-white dark:bg-gray-900 p-8 md:rounded-r-2xl flex flex-col justify-center">
+          <div className="max-w-md w-full mx-auto">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Welcome back</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-8">Sign in to your account</p>
+            
+            <form ref={formRef} onSubmit={handlePasswordLogin} className="space-y-6">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Email address
+                </label>
+                <Input
                   id="email"
                   name="email"
                   type="email"
-                  label="Email address"
-                  className="w-full"
+                  autoComplete="email"
+                  placeholder="Enter your email"
+                  value={email}
+                  ref={emailRef}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
                 />
-                <div className="flex items-center justify-between">
-                  <a href="#" className="text-sm font-medium text-[#007AFF] hover:underline transition-colors">
-                    Forgot password?
-                  </a>
-                </div>
-                
-                <AnimatedButton 
-                  type="submit" 
-                  className="w-full mt-2" 
-                  isLoading={isLoading}
-                  loadingText="Signing in..."
-                  variant="gradient"
-                >
-                  Sign In <ArrowRight className="ml-2 h-4 w-4" />
-                </AnimatedButton>
-              </form>
-            ) : (
-              <div className="text-center">
-                <p className="mb-4 text-gray-600 dark:text-gray-400">Passkey login is not yet fully implemented.</p>
-                <AnimatedButton 
-                  onClick={handlePasskeyLogin} 
-                  isLoading={isLoading}
-                  loadingText="Authenticating..."
-                  variant="outline"
-                  className="w-full"
-                >
-                  <Key className="mr-2 h-4 w-4" />
-                  Sign in with Passkey
-                </AnimatedButton>
               </div>
-            )}
-
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200 dark:border-gray-700"></div>
-              </div>
-              <div className="relative flex justify-center">
-                <span className="px-3 text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900">Or continue with</span>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <AnimatedButton 
-                variant="outline" 
-                onClick={handleDemoLogin}
-                className="w-full h-11"
-              >
-                <MicrosoftIcon className="h-4 w-4 mr-2" />
-                <span>Sign in with Microsoft</span>
-              </AnimatedButton>
               
-              <AnimatedButton 
-                variant="outline" 
-                onClick={handleDemoLogin}
-                className="w-full h-11"
+              <div>
+            <div className="flex justify-between items-center mb-1">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Password
+              </label>
+              <a href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
+                Forgot password?
+              </a>
+            </div>
+            <div className="relative">
+              <Input
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full px-4 py-2 pr-10 rounded-lg border border-gray-300 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                tabIndex={-1}
               >
-                <span className="bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent text-sm">
-                  Try Demo Account
-                </span>
-              </AnimatedButton>
+                {showPassword ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
             </div>
-
-            {/* Footer */}
-            <div className="mt-8 pt-4 border-t border-gray-100 dark:border-gray-800 text-center">
-              <p className="text-xs text-gray-400 dark:text-gray-500">
-                © {new Date().getFullYear()} Global Remit. All rights reserved.
-              </p>
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                name="remember-me"
+                type="checkbox"
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded dark:bg-gray-800 dark:border-gray-700"
+              />
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                Remember me
+              </label>
             </div>
+          </div>
+          
+          <div>
+            <Button
+              type="submit"
+              disabled={passwordLoading}
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {passwordLoading ? (
+                <>
+                  <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                  Signing in...
+                </>
+              ) : 'Sign in'}
+            </Button>
+          </div>
+          </div>
+        </form>
+          
+          {/* Developer Helper Widget - Only shown in development */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+              <DeveloperLoginHelper 
+                emailRef={emailRef}
+                passwordRef={passwordRef}
+                formRef={formRef}
+                onEmailChange={setEmail}
+                onPasswordChange={setPassword}
+              />
+            </div>
+          )}
+          
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Don't have an account?{' '}
+              <a href="/register" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
+                Sign up
+              </a>
+            </p>
           </div>
         </div>
       </div>
-      
-      <DeveloperLoginHelper 
+    </div>
+  );
+}

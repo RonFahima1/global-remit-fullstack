@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"backend/internal/utils/token"
+	"global-remit-backend/internal/utils/token"
 )
 
 func AuthMiddleware() gin.HandlerFunc {

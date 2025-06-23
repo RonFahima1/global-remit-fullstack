@@ -18,13 +18,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
-	"backend/api/handlers"
-	"backend/api/middleware"
-	"backend/config"
-	"backend/internal/app"
-	"backend/internal/domain"
-	"backend/internal/utils/token"
-	"backend/pkg/db"
+	"global-remit-backend/api/handlers"
+	"global-remit-backend/api/middleware"
+	"global-remit-backend/config"
+	"global-remit-backend/internal/app"
+	"global-remit-backend/internal/domain"
+	"global-remit-backend/internal/utils/token"
+	"global-remit-backend/pkg/db"
 )
 
 type UserCRUDTestSuite struct {

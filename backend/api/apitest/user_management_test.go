@@ -14,11 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
-	"backend/api/handlers"
-	"backend/config"
-	"backend/internal/app"
-	"backend/internal/utils/token"
-	"backend/pkg/db"
+	"global-remit-backend/api/handlers"
+	"global-remit-backend/config"
+	"global-remit-backend/internal/app"
+	"global-remit-backend/internal/utils/token"
+	"global-remit-backend/pkg/db"
 )
 
 type UserManagementTestSuite struct {

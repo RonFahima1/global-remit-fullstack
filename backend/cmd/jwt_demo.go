@@ -1,7 +1,7 @@
 package main
 
 import (
-	"backend/internal/utils/token"
+	"global-remit-backend/internal/utils/token"
 	"context"
 	"fmt"
 	"os"

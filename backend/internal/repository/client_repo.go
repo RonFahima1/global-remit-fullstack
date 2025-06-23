@@ -5,7 +5,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"backend/internal/domain"
+	"global-remit-backend/internal/domain"
 )
 
 // ClientRepository defines the interface for client data operations.

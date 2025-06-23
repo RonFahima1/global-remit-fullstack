@@ -5,7 +5,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"backend/internal/repository"
+	"global-remit-backend/internal/repository"
 )
 
 // Application holds all the application's services.

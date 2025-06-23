@@ -8,8 +8,8 @@ import (
 	"os"
 	"testing"
 
-	"backend/api/routes"
-	"backend/internal/utils/token"
+	"global-remit-backend/api/routes"
+	"global-remit-backend/internal/utils/token"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"

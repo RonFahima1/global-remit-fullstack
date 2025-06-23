@@ -4,10 +4,10 @@ import (
 	"flag"
 	"log"
 
-	"backend/api/routes"
-	"backend/config"
-	"backend/internal/utils/token"
-	"backend/pkg/db"
+	"global-remit-backend/api/routes"
+	"global-remit-backend/config"
+	"global-remit-backend/internal/utils/token"
+	"global-remit-backend/pkg/db"
 )
 
 func main() {

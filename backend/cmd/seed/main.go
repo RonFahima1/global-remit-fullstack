@@ -13,7 +13,7 @@ import (
 	cryptorand "crypto/rand"
 	"encoding/hex"
 
-	"backend/internal/cache"
+	"global-remit-backend/internal/cache"
 
 	faker "github.com/go-faker/faker/v4"
 	_ "github.com/lib/pq"

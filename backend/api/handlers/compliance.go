@@ -8,9 +8,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"backend/internal/app"
-	"backend/internal/domain"
-	"backend/internal/repository"
+	"global-remit-backend/internal/app"
+	"global-remit-backend/internal/domain"
+	"global-remit-backend/internal/repository"
 )
 
 // ComplianceHandler handles HTTP requests for compliance-related operations.

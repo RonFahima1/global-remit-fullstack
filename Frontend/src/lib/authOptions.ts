@@ -41,16 +41,28 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials) {
-        console.log('AUTHORIZE FUNCTION CALLED', credentials);
+      async authorize(credentials, req: any) { // Using any to avoid type issues with NextAuth's internal types
+        console.log('\n===== AUTHORIZE FUNCTION CALLED =====');
+        console.log('Request URL:', req?.url);
+        console.log('Request Headers:', req?.headers);
+        console.log('Credentials received:', { 
+          hasEmail: !!credentials?.email,
+          hasPassword: !!credentials?.password,
+          email: credentials?.email ? '[REDACTED]' : undefined
+        });
+
         if (!credentials?.email || !credentials?.password) {
-          console.log('Missing credentials');
+          console.error('❌ Missing credentials');
           return null;
         }
 
         try {
+          // Log the API URL being called
+          const loginUrl = `${API_BASE_URL}/auth/login`;
+          console.log('\n🔐 Calling backend authentication endpoint:', loginUrl);
+          
           // Call the backend API for authentication
-          const response = await fetch(`${API_BASE_URL}/auth/login`, {
+          const response = await fetch(loginUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -64,7 +76,10 @@ export const authOptions: NextAuthOptions = {
           const data = await response.json();
 
           if (!response.ok) {
-            console.log('Login failed:', data);
+            console.error('❌ Login failed with status:', response.status);
+            console.error('Response headers:', Object.fromEntries(response.headers.entries()));
+            console.error('Error response:', data);
+            
             // Handle specific error cases
             if (data.error === 'Account is locked') {
               throw new Error('Account is locked. Please contact support.');
@@ -72,7 +87,15 @@ export const authOptions: NextAuthOptions = {
             if (data.error === 'invalid credentials') {
               throw new Error('Invalid email or password.');
             }
-            throw new Error(data.error || 'Login failed');
+            throw new Error(data.error || `Login failed with status ${response.status}`);
+          } else {
+            console.log('✅ Login successful');
+            console.log('User data:', { 
+              id: data.user?.id || data.user?.user_id,
+              email: data.user?.email,
+              role: data.user?.role,
+              mustChangePassword: data.user?.must_change_password
+            });
           }
 
           // Check if user must change password

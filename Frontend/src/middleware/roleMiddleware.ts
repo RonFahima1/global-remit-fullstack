@@ -39,7 +39,7 @@ export async function roleMiddleware(request: NextRequest) {
   try {
     const token = await getToken({ 
       req: request, 
-      secret: 'b1e93eda591ada953b034a7c28eaba0e' 
+      secret: process.env.NEXTAUTH_SECRET 
     });
 
     // If no token, redirect to login

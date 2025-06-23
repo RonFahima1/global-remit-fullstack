@@ -6,9 +6,9 @@ import (
 	"log"
 	"os"
 
-	"backend/config"
-	"backend/internal/repository"
-	"backend/pkg/db"
+	"global-remit-backend/config"
+	"global-remit-backend/internal/repository"
+	"global-remit-backend/pkg/db"
 )
 
 func main() {

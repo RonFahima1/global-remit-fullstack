@@ -3,8 +3,8 @@ package app
 import (
 	"context"
 
-	"backend/internal/domain"
-	"backend/internal/repository"
+	"global-remit-backend/internal/domain"
+	"global-remit-backend/internal/repository"
 )
 
 // AuditService provides a simple interface for creating audit log entries.

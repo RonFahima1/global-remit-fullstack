@@ -10,8 +10,8 @@ SET standard_conforming_strings = on;
 --
 -- Roles
 --
-
-CREATE ROLE postgres;
+-- Role creation is handled by the PostgreSQL container
+-- CREATE ROLE postgres;
 ALTER ROLE postgres WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN REPLICATION BYPASSRLS PASSWORD 'SCRAM-SHA-256$4096:J7EMUYdOfKYm57DI32ATTw==$1F/JRMskR4ih6Ik1E5shrFCthEHxcIjqvxhz8+yQyIs=:d/CdXxVOpELNH972XvUc+N1iTANLdtGP3cU+ZTzqQdE=';
 
 
@@ -26,16 +26,40 @@ ALTER ROLE postgres WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN REPLICATION
 --
 -- Database "template1" dump
 --
-
 \connect template1
 
 --
 -- PostgreSQL database dump
 --
-
 -- Dumped from database version 14.18
 -- Dumped by pg_dump version 14.18
 
+-- Connect to the postgres database first
+\connect postgres
+
+-- Check if database exists and create it if it doesn't
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'global_remit') THEN
+        PERFORM dblink_exec('dbname=' || current_database(), 'CREATE DATABASE global_remit WITH TEMPLATE = template0 ENCODING = ''UTF8'' LOCALE = ''en_US.utf8''');
+    END IF;
+END
+$$;
+
+-- Connect to the global_remit database
+\connect global_remit
+
+-- Make the script idempotent by dropping and recreating schemas if they exist
+DROP SCHEMA IF EXISTS auth CASCADE;
+DROP SCHEMA IF EXISTS compliance CASCADE;
+DROP SCHEMA IF EXISTS config CASCADE;
+DROP SCHEMA IF EXISTS core CASCADE;
+DROP SCHEMA IF EXISTS public CASCADE;
+
+-- Recreate the public schema
+CREATE SCHEMA public;
+
+-- Set up search path and other settings
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
@@ -74,14 +98,8 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: global_remit; Type: DATABASE; Schema: -; Owner: postgres
+-- Connect to the global_remit database
 --
-
-CREATE DATABASE global_remit WITH TEMPLATE = template0 ENCODING = 'UTF8' LOCALE = 'en_US.utf8';
-
-
-ALTER DATABASE global_remit OWNER TO postgres;
-
 \connect global_remit
 
 SET statement_timeout = 0;

@@ -4,10 +4,11 @@ import (
 	"log/slog"
 	"os"
 
-	"backend/api/handlers"
-	"backend/api/middleware"
-	"backend/internal/app"
+	"global-remit-backend/api/handlers"
+	"global-remit-backend/api/middleware"
+	"global-remit-backend/internal/app"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 )
@@ -15,6 +16,26 @@ import (
 // SetupRouter configures the API routes.
 func SetupRouter(db *sqlx.DB) *gin.Engine {
 	r := gin.Default()
+
+	// Configure CORS
+	config := cors.DefaultConfig()
+	config.AllowOrigins = []string{
+		"http://localhost:3000",     // Local development
+		"http://frontend:3000",      // Docker network
+		"http://localhost:8080",     // Backend dev server
+	}
+	config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
+	config.AllowHeaders = []string{
+		"Origin",
+		"Content-Type",
+		"Accept",
+		"Authorization",
+		"X-Requested-With",
+		"X-CSRF-Token",
+	}
+	config.AllowCredentials = true
+
+	r.Use(cors.New(config))
 
 	// Create a logger
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -27,6 +48,10 @@ func SetupRouter(db *sqlx.DB) *gin.Engine {
 	invitationHandler := handlers.NewInvitationHandler(application)
 	userManagementHandler := handlers.NewUserManagementHandler(application)
 	clientHandler := handlers.NewClientHandler(application)
+	healthHandler := handlers.NewHealthHandler()
+
+	// Health check endpoint (public)
+	r.GET("/api/v1/health", healthHandler.HealthCheck)
 
 	// Group routes under /api/v1
 	v1 := r.Group("/api/v1")

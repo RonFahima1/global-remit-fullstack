@@ -5,10 +5,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"backend/internal/app"
-	"backend/internal/domain"
-	"backend/internal/session"
-	"backend/internal/utils/token"
+	"global-remit-backend/internal/app"
+	"global-remit-backend/internal/domain"
+	"global-remit-backend/internal/session"
+	"global-remit-backend/internal/utils/token"
 	"database/sql"
 	"time"
 )

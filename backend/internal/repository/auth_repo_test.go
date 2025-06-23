@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"backend/internal/domain"
+	"global-remit-backend/internal/domain"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"

@@ -5,7 +5,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"backend/internal/domain"
+	"global-remit-backend/internal/domain"
 )
 
 type AccountRepository struct {

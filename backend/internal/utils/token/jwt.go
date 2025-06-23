@@ -1,8 +1,8 @@
 package token
 
 import (
-	"backend/internal/cache"
-	"backend/internal/domain"
+	"global-remit-backend/internal/cache"
+	"global-remit-backend/internal/domain"
 	"context"
 	"crypto/rsa"
 	"encoding/pem"

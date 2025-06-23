@@ -1,7 +1,7 @@
 package session
 
 import (
-	"backend/internal/cache"
+	"global-remit-backend/internal/cache"
 	"context"
 	"encoding/json"
 	"errors"

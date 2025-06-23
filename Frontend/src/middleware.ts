@@ -15,13 +15,14 @@ export async function middleware(request: NextRequest) {
     return null;
   }
 
-  const token = await getToken({ req: request, secret: 'b1e93eda591ada953b034a7c28eaba0e' });
-  const isAuthPage = request.nextUrl.pathname === `${UI_URL}/login` || 
-                    request.nextUrl.pathname === "/register";
+  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+  const isAuthPage = request.nextUrl.pathname === '/login' || 
+                    request.nextUrl.pathname === '/register';
   const callbackUrl = request.nextUrl.searchParams.get('callbackUrl');
+  const callbackPath = callbackUrl ? new URL(callbackUrl, UI_URL).pathname : null;
 
   // Prevent infinite redirect loop: if already on /login or /register and callbackUrl is also /login or /register, do not redirect
-  if (isAuthPage && (callbackUrl === `${UI_URL}/login` || callbackUrl === '/register')) {
+  if (isAuthPage && (callbackPath === '/login' || callbackPath === '/register')) {
     return null;
   }
 

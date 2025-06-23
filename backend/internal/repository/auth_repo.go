@@ -9,7 +9,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"backend/internal/domain"
+	"global-remit-backend/internal/domain"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
