@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"flag"
 	"fmt"
@@ -12,8 +11,6 @@ import (
 
 	cryptorand "crypto/rand"
 	"encoding/hex"
-
-	"global-remit-backend/internal/cache"
 
 	faker "github.com/go-faker/faker/v4"
 	_ "github.com/lib/pq"
@@ -75,20 +72,6 @@ func main() {
 	}
 
 	fmt.Printf("Seeded %d clients, %d accounts, and ~%d transactions.\n", len(clientIDs), len(accountIDs), len(accountIDs)*7)
-	fmt.Println("Testing Redis...")
-	ctx := context.Background()
-	err = cache.Set(ctx, "test:ping", "pong", 10*time.Second)
-	if err != nil {
-		fmt.Println("Redis SET error:", err)
-	} else {
-		val, err := cache.Get(ctx, "test:ping")
-		if err != nil {
-			fmt.Println("Redis GET error:", err)
-		} else {
-			fmt.Println("Redis GET test:ping =", val)
-		}
-	}
-	_ = cache.Close()
 }
 
 func seedTestUsers(db *sql.DB) {

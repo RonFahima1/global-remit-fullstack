@@ -124,7 +124,7 @@ export default function LoginPage() {
           console.log('✅ Login successful, redirecting to dashboard');
           toastSuccess("Login Successful!");
           // Use window.location for reliable redirect
-          const redirectUrl = result.url || '/dashboard';
+          const redirectUrl = typeof result.url === 'string' ? result.url : '/dashboard';
           console.log('Redirecting to:', redirectUrl);
           window.location.href = redirectUrl;
         } else {

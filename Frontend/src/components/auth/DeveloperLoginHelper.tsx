@@ -309,7 +309,7 @@ export function DeveloperLoginHelper({
     }));
 
     try {
-      const response = await fetch('/api/health');
+      const response = await fetch('/api/v1/health');
       const data = await response.json();
       
       if (response.ok) {

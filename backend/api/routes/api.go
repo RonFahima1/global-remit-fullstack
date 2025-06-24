@@ -20,9 +20,9 @@ func SetupRouter(db *sqlx.DB) *gin.Engine {
 	// Configure CORS
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{
-		"http://localhost:3000",     // Local development
-		"http://frontend:3000",      // Docker network
-		"http://localhost:8080",     // Backend dev server
+		"http://localhost:3000", // Local development
+		"http://frontend:3000",  // Docker network
+		"http://localhost:8080", // Backend dev server
 	}
 	config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
 	config.AllowHeaders = []string{
@@ -83,17 +83,19 @@ func SetupRouter(db *sqlx.DB) *gin.Engine {
 				protectedAuth.POST("/change-password", authHandler.ChangePassword)
 			}
 
-			// User management routes - simplified structure
-			protected.GET("/users", userManagementHandler.GetUsers)
-			protected.POST("/users", userManagementHandler.CreateUser)
-			protected.GET("/users/search", userManagementHandler.SearchUsers)
-			protected.GET("/users/:id", userManagementHandler.GetUser)
-			protected.PUT("/users/:id", userManagementHandler.UpdateUser)
-			protected.PATCH("/users/:id/status", userManagementHandler.UpdateUserStatus)
-			protected.POST("/users/:id/reset-password", userManagementHandler.ResetUserPassword)
-			protected.DELETE("/users/:id", userManagementHandler.DeleteUser)
-			protected.GET("/users/:id/permissions", userManagementHandler.GetUserPermissions)
-			protected.GET("/test-users", userManagementHandler.Test)
+			// User management routes - refactored for correct Gin matching
+			protected.GET("/users/self/permissions", userManagementHandler.GetSelfPermissions)
+			users := protected.Group("/users")
+			users.GET("/:id/permissions", userManagementHandler.GetUserPermissions)
+			users.GET("/:id", userManagementHandler.GetUser)
+			users.GET("", userManagementHandler.GetUsers)
+			users.POST("", userManagementHandler.CreateUser)
+			users.GET("/search", userManagementHandler.SearchUsers)
+			users.PUT("/:id", userManagementHandler.UpdateUser)
+			users.PATCH("/:id/status", userManagementHandler.UpdateUserStatus)
+			users.POST("/:id/reset-password", userManagementHandler.ResetUserPassword)
+			users.DELETE("/:id", userManagementHandler.DeleteUser)
+			users.GET("/test-users", userManagementHandler.Test)
 
 			// Role management routes
 			protected.GET("/roles", userManagementHandler.GetRoles)
@@ -113,9 +115,9 @@ func SetupRouter(db *sqlx.DB) *gin.Engine {
 		}
 
 		// Test-only routes
-		if gin.Mode() != gin.ReleaseMode {
-			v1.POST("/test/seed-user", authHandler.TestSeedUser)
-		}
+		// if gin.Mode() != gin.ReleaseMode {
+		// 	v1.POST("/test/seed-user", authHandler.TestSeedUser)
+		// }
 	}
 
 	return r

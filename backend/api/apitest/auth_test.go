@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"golang.org/x/crypto/bcrypt"
 
 	"global-remit-backend/api/handlers"
 	"global-remit-backend/config"
@@ -76,7 +77,7 @@ func (suite *AuthTestSuite) SetupSuite() {
 	repo := appInstance.AuthRepo
 	ctx := context.Background()
 	adminEmail := "admin@example.com"
-	_, err = repo.GetUserByEmail(ctx, adminEmail)
+	adminUser, err := repo.GetUserByEmail(ctx, adminEmail)
 	if err != nil {
 		// Ensure ORG_ADMIN role exists
 		var roleID int
@@ -86,7 +87,7 @@ func (suite *AuthTestSuite) SetupSuite() {
 			_, err = db.ExecContext(ctx, `INSERT INTO auth.roles (name, description, is_system, created_at, updated_at) VALUES ($1, $2, true, NOW(), NOW())`, "ORG_ADMIN", "Organization Admin")
 			require.NoError(suite.T(), err)
 		}
-		adminUser := &domain.User{
+		adminUser = &domain.User{
 			Username:  "admin",
 			Email:     adminEmail,
 			FirstName: "Admin",
@@ -95,6 +96,12 @@ func (suite *AuthTestSuite) SetupSuite() {
 			Status:    "ACTIVE",
 		}
 		err = repo.CreateUser(ctx, adminUser, "AdminPass123!")
+		require.NoError(suite.T(), err)
+	} else {
+		// Update existing admin user's password to match test expectations and unlock the account
+		passwordHash, err := bcrypt.GenerateFromPassword([]byte("AdminPass123!"), bcrypt.DefaultCost)
+		require.NoError(suite.T(), err)
+		_, err = database.ExecContext(ctx, "UPDATE auth.users SET password_hash = $1, failed_login_attempts = 0, locked_until = NULL WHERE id = $2", string(passwordHash), adminUser.ID)
 		require.NoError(suite.T(), err)
 	}
 }

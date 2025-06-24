@@ -5,12 +5,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"database/sql"
 	"global-remit-backend/internal/app"
 	"global-remit-backend/internal/domain"
-	"global-remit-backend/internal/session"
 	"global-remit-backend/internal/utils/token"
-	"database/sql"
-	"time"
 )
 
 type AuthHandler struct {
@@ -101,27 +99,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 	h.app.Logger.Info("User login successful", "email", user.Email, "userID", user.ID)
-	// Create session
-	sessMgr := session.NewRedisSessionManager()
-	sess, err := sessMgr.Create(c.Request.Context(), &session.Session{
-		UserID: user.ID.String(),
-		Email:  user.Email,
-		Role:   user.Role, // Use real role
-		// Add more fields as needed
-	}, c.ClientIP(), c.Request.UserAgent(), 30*time.Minute)
-	if err != nil {
-		h.app.Logger.Error("Failed to create session", "userID", user.ID, "error", err.Error())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create session", "details": err.Error()})
-		return
-	}
 	// Issue JWTs with permissions
-	accessToken, err := token.GenerateAccessToken(user, sess.ID, permissions)
+	accessToken, err := token.GenerateAccessToken(user, user.ID.String(), permissions)
 	if err != nil {
 		h.app.Logger.Error("Failed to issue access token", "userID", user.ID, "error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to issue token", "details": err.Error()})
 		return
 	}
-	refreshToken, err := token.GenerateRefreshToken(user, sess.ID, permissions)
+	refreshToken, err := token.GenerateRefreshToken(user, user.ID.String(), permissions)
 	if err != nil {
 		h.app.Logger.Error("Failed to issue refresh token", "userID", user.ID, "error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to issue refresh token", "details": err.Error()})
@@ -178,12 +163,12 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		return
 	}
 	// Optionally check session validity in Redis
-	accessToken, err := token.GenerateAccessToken(user, claims.ID, permissions)
+	accessToken, err := token.GenerateAccessToken(user, user.ID.String(), permissions)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to issue token"})
 		return
 	}
-	refreshToken, err := token.GenerateRefreshToken(user, claims.ID, permissions)
+	refreshToken, err := token.GenerateRefreshToken(user, user.ID.String(), permissions)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to issue refresh token"})
 		return
@@ -217,12 +202,10 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 		return
 	}
-	sessMgr := session.NewRedisSessionManager()
-	_ = sessMgr.Delete(c.Request.Context(), claims.ID)
-	h.app.Logger.Info("User logout successful", "userID", claims.UserID, "sessionID", claims.ID)
 	// Optionally blacklist JWT in Redis
 	c.SetCookie("accessToken", "", -1, "/", "", true, true)
 	c.SetCookie("refreshToken", "", -1, "/", "", true, true)
+	h.app.Logger.Info("User logout successful", "userID", claims.UserID, "sessionID", claims.ID)
 	c.JSON(http.StatusOK, gin.H{"message": "logged out"})
 }
 

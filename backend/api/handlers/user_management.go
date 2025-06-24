@@ -327,10 +327,23 @@ func (h *UserManagementHandler) GetRoles(c *gin.Context) {
 
 // GetUserPermissions returns permissions for a specific user
 func (h *UserManagementHandler) GetUserPermissions(c *gin.Context) {
-	userID := c.Param("id")
-	if userID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "user ID is required"})
-		return
+	h.app.Logger.Info("[HANDLER] GetUserPermissions called", "path", c.FullPath(), "param_id", c.Param("id"))
+	var userID string
+	if c.FullPath() == "/api/v1/users/self/permissions" {
+		ctxUserID, exists := c.Get("userID")
+		if !exists {
+			h.app.Logger.Error("No userID in context for self/permissions", "path", c.FullPath())
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+			return
+		}
+		userID = ctxUserID.(string)
+	} else {
+		userID = c.Param("id")
+		if userID == "" {
+			h.app.Logger.Error("No userID param for id/permissions", "path", c.FullPath())
+			c.JSON(http.StatusBadRequest, gin.H{"error": "user ID is required"})
+			return
+		}
 	}
 
 	permissions, err := h.app.AuthRepo.GetUserPermissions(c.Request.Context(), userID)
@@ -374,4 +387,23 @@ func generateTempPassword() string {
 // Test endpoint to verify route registration
 func (h *UserManagementHandler) Test(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "User management handler is working"})
+}
+
+// GetSelfPermissions returns permissions for the authenticated user (self)
+func (h *UserManagementHandler) GetSelfPermissions(c *gin.Context) {
+	h.app.Logger.Info("[HANDLER] GetSelfPermissions called", "path", c.FullPath())
+	ctxUserID, exists := c.Get("userID")
+	if !exists {
+		h.app.Logger.Error("No userID in context for self/permissions", "path", c.FullPath())
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+	userID := ctxUserID.(string)
+	permissions, err := h.app.AuthRepo.GetUserPermissions(c.Request.Context(), userID)
+	if err != nil {
+		h.app.Logger.Error("Failed to fetch self permissions", "userID", userID, "error", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch user permissions"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"permissions": permissions})
 }

@@ -121,6 +121,7 @@ func (r *AuthRepository) AuthenticateUser(ctx context.Context, email, password s
 		ORDER BY (r.name = 'ORG_ADMIN') DESC, r.id ASC
 		LIMIT 1
 	`
+	log.Printf("AuthenticateUser: Executing query: %s with email: %s", query, email)
 	err := r.db.GetContext(ctx, &user, query, email)
 	if err != nil {
 		log.Printf("AuthenticateUser: Database error for email %s: %v", email, err)
@@ -158,8 +159,9 @@ func (r *AuthRepository) AuthenticateUser(ctx context.Context, email, password s
 	}
 
 	log.Printf("AuthenticateUser: Comparing password for user %s", email)
+	log.Printf("AuthenticateUser: Password hash from DB: %s", user.PasswordHash)
+	log.Printf("AuthenticateUser: Password from request: %s", password)
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		// Password mismatch - increment failed attempts
 		log.Printf("AuthenticateUser: Password mismatch for user %s", email)
 
 		// Increment failed login attempts
@@ -183,6 +185,8 @@ func (r *AuthRepository) AuthenticateUser(ctx context.Context, email, password s
 		}
 
 		return nil, errors.New("password does not match")
+	} else {
+		log.Printf("AuthenticateUser: Password MATCH for user %s", email)
 	}
 
 	// Successful login - reset failed attempts and update last login

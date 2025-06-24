@@ -2,18 +2,22 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:14-alpine
+    image: pgvector/pgvector:pg14
     container_name: postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: global_remit
+      # Enable required extensions
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     ports:
       - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres_snapshot.sql:/docker-entrypoint-initdb.d/postgres_snapshot.sql:ro
       - ./scripts/postgres-init.sh:/docker-entrypoint-initdb.d/01_postgres-init.sh:ro
+      - ./backend/db/migrations/20250622090700_step_45_postgres_extensions_setup.sql:/docker-entrypoint-initdb.d/02_postgres_extensions_setup.sql:ro
+      - ./scripts/postgres-extensions.sh:/docker-entrypoint-initdb.d/03_postgres_extensions.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d global_remit"]
       interval: 5s
@@ -21,6 +25,27 @@ services:
       retries: 10
     networks:
       - backend_network
+    command: >
+      postgres
+      -c shared_preload_libraries='pg_stat_statements,vector'
+      -c pg_stat_statements.track=all
+      -c pg_stat_statements.max=10000
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=4MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+      -c max_worker_processes=8
+      -c max_parallel_workers_per_gather=4
+      -c max_parallel_workers=8
+      -c max_parallel_maintenance_workers=4
 
   redis:
     image: redis:7-alpine
@@ -29,6 +54,7 @@ services:
       - "6380:6379"
     networks:
       - backend_network
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
 
   backend:
     build:
@@ -59,6 +85,7 @@ services:
       - GIN_MODE=debug
       - JWT_PRIVATE_KEY=/app/jwt_private.pem
       - JWT_PUBLIC_KEY=/app/jwt_public.pem
+      - APP_ENCRYPTION_KEY=your-super-secret-encryption-key-here
     networks:
       - backend_network
 
@@ -87,6 +114,72 @@ services:
     networks:
       - backend_network
 
+  # PostgREST service for REST API layer
+  postgrest:
+    image: postgrest/postgrest:latest
+    container_name: postgrest
+    ports:
+      - "3001:3000"
+    environment:
+      PGRST_DB_URI: postgres://postgres:postgres@postgres:5432/global_remit
+      PGRST_DB_SCHEMAS: rest_api,core,auth,config
+      PGRST_DB_ANON_ROLE: postgres
+      PGRST_JWT_SECRET: b1e93eda591ada953b034a7c28eaba0e
+      PGRST_DEFAULT_RLS: "1"
+    depends_on:
+      - postgres
+    networks:
+      - backend_network
+
+  # GraphQL service using PostGraphile
+  postgraphile:
+    image: graphile/postgraphile:latest
+    container_name: postgraphile
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/global_remit
+      POSTGRAPHILE_OPTIONS: --watch --enhance-graphiql --subscriptions --simple-subscriptions
+    depends_on:
+      - postgres
+    networks:
+      - backend_network
+
+  # Monitoring service
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - backend_network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3002:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - backend_network
+
   frontend:
     build:
       context: ./frontend
@@ -103,9 +196,11 @@ services:
       - NEXT_PUBLIC_APP_ENV=development
       - NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
       - NEXTAUTH_URL=http://localhost:3000
-      - NEXTAUTH_SECRET=your-secret-key-here
+      - NEXTAUTH_SECRET=b1e93eda591ada953b034a7c28eaba0e
       - BACKEND_URL=http://backend:8080/api/v1
       - REDIS_URL=redis://redis:6379
+      - NEXT_PUBLIC_POSTGREST_URL=http://localhost:3001
+      - NEXT_PUBLIC_GRAPHQL_URL=http://localhost:5000/graphql
     networks:
       - backend_network
 
@@ -113,4 +208,6 @@ networks:
   backend_network:
 
 volumes:
-  postgres_data: 
+  postgres_data:
+  prometheus_data:
+  grafana_data: 

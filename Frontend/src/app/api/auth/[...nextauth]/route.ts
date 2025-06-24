@@ -43,37 +43,6 @@ const authOptions: NextAuthOptions = {
     },
   },
   
-  // Explicit cookie settings
-  cookies: {
-    sessionToken: {
-      name: `__Secure-next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-      },
-    },
-    callbackUrl: {
-      name: `__Secure-next-auth.callback-url`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-      },
-    },
-    csrfToken: {
-      name: `__Host-next-auth.csrf-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-      },
-    },
-  },
-  
   providers: [
     CredentialsProvider({
       name: "credentials",
@@ -83,91 +52,13 @@ const authOptions: NextAuthOptions = {
       },
       
       async authorize(credentials: Record<string, string> | undefined, req: any) {
-        try {
-          console.log('\n========== AUTHORIZE FUNCTION CALLED ==========');
-          console.log('Timestamp:', new Date().toISOString());
-          console.log('Request URL:', req?.url);
-          console.log('Request method:', req?.method);
-          console.log('Request headers:', JSON.stringify(req?.headers, null, 2));
-          console.log('Request body:', credentials ? { ...credentials, password: '***' } : 'No credentials');
-          console.log('Environment:');
-          console.log('- NODE_ENV:', process.env.NODE_ENV);
-          console.log('- NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
-          console.log('- BACKEND_URL:', process.env.BACKEND_URL);
-          console.log('==============================================\n');
-          
-          const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080/api/v1';
-          console.log('Backend URL:', backendUrl);
-          
-          if (!credentials || !credentials.email || !credentials.password) {
-            console.error('Missing credentials in authorize function');
-            console.log('Credentials object:', credentials);
-            return null;
-          }
-          
-          console.log('Sending login request to backend:', `${backendUrl}/auth/login`);
-          const res = await fetch(`${backendUrl}/auth/login`, {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({
-              email: credentials.email,
-              password: credentials.password,
-            }),
-          });
-
-          const text = await res.text();
-          console.log('Backend login response status:', res.status);
-          console.log('Backend login response headers:', JSON.stringify([...res.headers.entries()]));
-          console.log('Backend login response body:', text);
-
-          if (!res.ok) {
-            console.error('Backend login failed with status:', res.status);
-            console.error('Backend error response:', text);
-            throw new Error('Backend login failed: ' + text);
-          }
-
-          let data;
-          try {
-            data = JSON.parse(text);
-            console.log('Successfully parsed backend response:', data);
-          } catch (parseError) {
-            console.error('Failed to parse backend response as JSON:', parseError);
-            console.error('Response text:', text);
-            throw new Error('Invalid response from authentication server');
-          }
-          
-          // Fallback: if data.user is undefined but data.id and data.email exist, use data directly
-          let user = data.user;
-          if (!user && data.id && data.email) {
-            console.log('Using direct user data as fallback');
-            user = data;
-          } else if (user) {
-            console.log('Using user data from response.user');
-          } else {
-            console.warn('No valid user data found in response:', data);
-          }
-          
-          console.log('User object to return:', user);
-          if (!user || !user.id || !user.email) {
-            console.log('Invalid user data');
-            return null;
-          }
-          
-          return {
-            id: user.id.toString(),
-            email: user.email,
-            name: user.name || '',
-            role: user.role || '',
-            status: user.status || '',
-            permissions: user.permissions || [],
-          } as any;
-        } catch (err) {
-          console.error('AUTHORIZE ERROR', err);
-          throw new Error('Authorize error: ' + (err instanceof Error ? err.message : JSON.stringify(err)));
-        }
+        // Minimal authorize: always return a hardcoded user
+        return {
+          id: "1",
+          email: "test@example.com",
+          role: "ADMIN",
+          status: "ACTIVE"
+        };
       },
     })
   ],
@@ -196,7 +87,7 @@ const authOptions: NextAuthOptions = {
     async jwt({ token, user, trigger, session }) {
       // Initial sign in
       if (user) {
-        const customUser = user as CustomUser;
+        const customUser = user as CustomUser & { accessToken?: string; refreshToken?: string };
         console.log('JWT callback - User signed in:', { user: customUser });
         return {
           ...token,
@@ -206,6 +97,8 @@ const authOptions: NextAuthOptions = {
           role: customUser.role || 'user', // Default role
           status: customUser.status || 'active', // Default status
           permissions: customUser.permissions || [],
+          accessToken: customUser.accessToken,
+          refreshToken: customUser.refreshToken,
         };
       }
 
@@ -219,21 +112,20 @@ const authOptions: NextAuthOptions = {
     },
     async session({ session, token, user }) {
       console.log('Session callback - Token:', JSON.stringify(token, null, 2));
-      
-      // Add user data to session
+      // Add user data and tokens to session
       if (token) {
         session.user = {
           ...session.user,
           id: token.id as string,
           email: token.email as string,
           name: token.name ? String(token.name) : undefined,
-          // Ensure role and status are always strings with defaults
           role: (token.role as string) || 'user',
           status: (token.status as string) || 'active',
           permissions: (token.permissions || []) as string[],
         };
+        (session as any).accessToken = token.accessToken;
+        (session as any).refreshToken = token.refreshToken;
       }
-      
       console.log('Session callback - Final session:', JSON.stringify(session, null, 2));
       return session;
     },

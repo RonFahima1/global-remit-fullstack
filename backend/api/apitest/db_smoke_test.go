@@ -11,10 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"context"
+	"global-remit-backend/config"
 	"global-remit-backend/internal/domain"
 	"global-remit-backend/internal/repository"
 	"global-remit-backend/pkg/db"
-	"context"
 
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/require"
@@ -23,8 +24,7 @@ import (
 // 5434 here is a port. Never change port numbers in code. Use canonical port from env/config only.
 
 func TestDBConnectionAndUsersTable(t *testing.T) {
-	appPort := os.Getenv("APP_PORT") // Never change port number here. Use canonical port from env/config.
-	dbPort := os.Getenv("DB_PORT")   // Never change port number here. Use canonical port from env/config.
+	dbPort := os.Getenv("DB_PORT") // Never change port number here. Use canonical port from env/config.
 	dsn := fmt.Sprintf("host=localhost port=%s user=postgres password=postgres dbname=global_remit sslmode=disable", dbPort)
 	if v := os.Getenv("DB_HOST"); v != "" {
 		dsn = "host=" + v + " port=" + os.Getenv("DB_PORT") + " user=" + os.Getenv("DB_USER") + " password=" + os.Getenv("DB_PASSWORD") + " dbname=" + os.Getenv("DB_NAME") + " sslmode=disable"
@@ -44,8 +44,7 @@ func TestDBConnectionAndUsersTable(t *testing.T) {
 }
 
 func TestUserCount(t *testing.T) {
-	appPort := os.Getenv("APP_PORT") // Never change port number here. Use canonical port from env/config.
-	dbPort := os.Getenv("DB_PORT")   // Never change port number here. Use canonical port from env/config.
+	dbPort := os.Getenv("DB_PORT") // Never change port number here. Use canonical port from env/config.
 	dsn := fmt.Sprintf("host=localhost port=%s user=postgres password=postgres dbname=global_remit sslmode=disable", dbPort)
 	if v := os.Getenv("DB_HOST"); v != "" {
 		dsn = "host=" + v + " port=" + os.Getenv("DB_PORT") + " user=" + os.Getenv("DB_USER") + " password=" + os.Getenv("DB_PASSWORD") + " dbname=" + os.Getenv("DB_NAME") + " sslmode=disable"
@@ -61,8 +60,7 @@ func TestUserCount(t *testing.T) {
 }
 
 func TestFetchAdminUserByEmail(t *testing.T) {
-	appPort := os.Getenv("APP_PORT") // Never change port number here. Use canonical port from env/config.
-	dbPort := os.Getenv("DB_PORT")   // Never change port number here. Use canonical port from env/config.
+	dbPort := os.Getenv("DB_PORT") // Never change port number here. Use canonical port from env/config.
 	dsn := fmt.Sprintf("host=localhost port=%s user=postgres password=postgres dbname=global_remit sslmode=disable", dbPort)
 	if v := os.Getenv("DB_HOST"); v != "" {
 		dsn = "host=" + v + " port=" + os.Getenv("DB_PORT") + " user=" + os.Getenv("DB_USER") + " password=" + os.Getenv("DB_PASSWORD") + " dbname=" + os.Getenv("DB_NAME") + " sslmode=disable"
@@ -80,7 +78,6 @@ func TestFetchAdminUserByEmail(t *testing.T) {
 
 func TestLoginEndpointReachable(t *testing.T) {
 	appPort := os.Getenv("APP_PORT") // Never change port number here. Use canonical port from env/config.
-	dbPort := os.Getenv("DB_PORT")   // Never change port number here. Use canonical port from env/config.
 	url := fmt.Sprintf("http://localhost:%s/api/v1/auth/login", appPort)
 	payload := []byte(`{"email":"admin@example.com","password":"AdminPass123!"}`)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
@@ -95,7 +92,6 @@ func TestLoginEndpointReachable(t *testing.T) {
 
 func TestLoginWithCorrectCredentials(t *testing.T) {
 	appPort := os.Getenv("APP_PORT") // Never change port number here. Use canonical port from env/config.
-	dbPort := os.Getenv("DB_PORT")   // Never change port number here. Use canonical port from env/config.
 	url := fmt.Sprintf("http://localhost:%s/api/v1/auth/login", appPort)
 	payload := []byte(`{"email":"demo@example.com","password":"password"}`)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
@@ -114,7 +110,6 @@ func TestLoginWithCorrectCredentials(t *testing.T) {
 
 func TestLoginWithIncorrectCredentials(t *testing.T) {
 	appPort := os.Getenv("APP_PORT") // Never change port number here. Use canonical port from env/config.
-	dbPort := os.Getenv("DB_PORT")   // Never change port number here. Use canonical port from env/config.
 	url := fmt.Sprintf("http://localhost:%s/api/v1/auth/login", appPort)
 	payload := []byte(`{"email":"demo@example.com","password":"wrongpassword"}`)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
@@ -133,7 +128,6 @@ func TestLoginWithIncorrectCredentials(t *testing.T) {
 func TestFetchUsersAPI(t *testing.T) {
 	// First, login to get a token
 	appPort := os.Getenv("APP_PORT") // Never change port number here. Use canonical port from env/config.
-	dbPort := os.Getenv("DB_PORT")   // Never change port number here. Use canonical port from env/config.
 	loginURL := fmt.Sprintf("http://localhost:%s/api/v1/auth/login", appPort)
 	payload := []byte(`{"email":"admin@example.com","password":"password"}`)
 	resp, err := http.Post(loginURL, "application/json", bytes.NewBuffer(payload))
@@ -180,7 +174,6 @@ func TestCreateAndLoginUserAPI(t *testing.T) {
 	jsonCreate, _ := json.Marshal(createPayload)
 	// Use admin token for user creation
 	appPort := os.Getenv("APP_PORT") // Never change port number here. Use canonical port from env/config.
-	dbPort := os.Getenv("DB_PORT")   // Never change port number here. Use canonical port from env/config.
 	loginURL := fmt.Sprintf("http://localhost:%s/api/v1/auth/login", appPort)
 	adminPayload := []byte(`{"email":"admin@example.com","password":"password"}`)
 	adminResp, err := http.Post(loginURL, "application/json", bytes.NewBuffer(adminPayload))
@@ -241,7 +234,7 @@ func TestCreateAndLoginUserAPI(t *testing.T) {
 
 func TestRepoCreateUserAndLoginAPI(t *testing.T) {
 	// Connect to DB using backend config
-	cfg, err := db.LoadConfig()
+	cfg, err := config.Load()
 	require.NoError(t, err)
 	database, err := db.Connect(cfg)
 	require.NoError(t, err)
@@ -268,7 +261,6 @@ func TestRepoCreateUserAndLoginAPI(t *testing.T) {
 
 	// Now login via API
 	appPort := os.Getenv("APP_PORT") // Never change port number here. Use canonical port from env/config.
-	dbPort := os.Getenv("DB_PORT")   // Never change port number here. Use canonical port from env/config.
 	loginURL := fmt.Sprintf("http://localhost:%s/api/v1/auth/login", appPort)
 	loginPayload := map[string]interface{}{
 		"email":    email,

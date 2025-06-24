@@ -37,7 +37,7 @@ export function LoginForm() {
           redirect: false,
           email,
           password,
-          callbackUrl: '/dashboard',
+          callbackUrl: '/test-login-success',
         });
         setDebug(result);
         if (result?.error) {
@@ -47,7 +47,7 @@ export function LoginForm() {
           return;
         }
         // If we got here, login was successful
-        router.push('/dashboard');
+        router.push('/test-login-success');
         router.refresh();
       }
     } catch (err: any) {
@@ -74,7 +74,7 @@ export function LoginForm() {
         </div>
         <div className="mt-10 min-h-[90px]">
           <div className="italic text-muted-foreground text-base sm:text-lg">
-            “Global Remit made it so easy to support my family abroad. I feel secure and valued every step of the way.”
+            "Global Remit made it so easy to support my family abroad. I feel secure and valued every step of the way."
             <div className="mt-2 text-sm font-semibold text-muted-foreground not-italic">— Maria, Customer</div>
           </div>
         </div>
@@ -120,6 +120,7 @@ export function LoginForm() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   disabled={loading}
+                  autoComplete="username"
                   className="bg-input border-border text-foreground placeholder-muted-foreground focus:border-primary focus:ring-primary/40 hover:border-border/80 h-14 px-5 rounded-xl"
                 />
               </div>
@@ -136,6 +137,7 @@ export function LoginForm() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   disabled={loading}
+                  autoComplete="current-password"
                   className="bg-input border-border text-foreground placeholder-muted-foreground focus:border-primary focus:ring-primary/40 hover:border-border/80 h-14 px-5 rounded-xl"
                 />
                 <div className="flex justify-end mt-1">
@@ -160,7 +162,7 @@ export function LoginForm() {
               email: 'demo@example.com',
               password: 'demo',
               redirect: true,
-              callbackUrl: '/dashboard',
+              callbackUrl: '/test-login-success',
             })}
             disabled={loading}
           >
